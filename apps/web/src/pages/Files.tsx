@@ -306,7 +306,7 @@ export default function Files() {
       ) : files && files.length > 0 ? (
         viewMode === 'list' ? (
           <div className="bg-card border rounded-lg divide-y">
-            {files.map((file) => (
+            {files.map((file: FileItem) => (
               <div
                 key={file.id}
                 className={`flex items-center gap-4 p-4 hover:bg-accent/50 cursor-pointer ${
@@ -356,7 +356,7 @@ export default function Files() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {files.map((file) => (
+            {files.map((file: FileItem) => (
               <div
                 key={file.id}
                 className={`bg-card border rounded-lg p-4 hover:bg-accent/50 cursor-pointer group ${
