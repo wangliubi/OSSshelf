@@ -8,7 +8,7 @@
     "dev:api": "pnpm --filter api dev",
     "build:web": "pnpm --filter @osshelf/shared build && pnpm --filter web build",
     "build:api": "pnpm --filter api build",
-    "deploy:api": "pnpm --filter api deploy:worker",
+    "deploy:api": "pnpm --filter @osshelf/shared build && pnpm --filter api deploy:worker",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter api db:generate",
