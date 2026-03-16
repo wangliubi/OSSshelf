@@ -10,7 +10,7 @@ import type {
   AuthResponse,
   FileListParams,
   ShareCreateParams,
-} from '@r2shelf/shared';
+} from '@osshelf/shared';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',

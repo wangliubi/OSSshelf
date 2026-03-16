@@ -4,7 +4,7 @@ import { getDb, files, shares } from '../db';
 import { s3Get } from '../lib/s3client';
 import { resolveBucketConfig } from '../lib/bucketResolver';
 import { authMiddleware } from '../middleware/auth';
-import { ERROR_CODES, SHARE_DEFAULT_EXPIRY } from '@r2shelf/shared';
+import { ERROR_CODES, SHARE_DEFAULT_EXPIRY } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 

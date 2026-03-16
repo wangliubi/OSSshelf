@@ -5,7 +5,7 @@ import { FileIcon } from '@/components/ui/FileIcon';
 import { useToast } from '@/components/ui/use-toast';
 import { formatBytes, formatDate } from '@/utils';
 import { Trash2, RotateCcw, AlertTriangle, PackageOpen } from 'lucide-react';
-import type { FileItem } from '@r2shelf/shared';
+import type { FileItem } from '@osshelf/shared';
 
 export default function Trash() {
   const { toast } = useToast();

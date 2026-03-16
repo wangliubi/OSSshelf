@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FileItem } from '@r2shelf/shared';
+import type { FileItem } from '@osshelf/shared';
 
 interface FileState {
   currentFolderId: string | null;

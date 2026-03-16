@@ -10,7 +10,7 @@ importers:
 
   apps/api:
     dependencies:
-      '@r2shelf/shared':
+      '@osshelf/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       drizzle-orm:
@@ -38,7 +38,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@r2shelf/shared':
+      '@osshelf/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@radix-ui/react-dialog':

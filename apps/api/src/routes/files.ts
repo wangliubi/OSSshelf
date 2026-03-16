@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { eq, and, isNull, isNotNull, like } from 'drizzle-orm';
 import { getDb, files, users, storageBuckets } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { ERROR_CODES, MAX_FILE_SIZE } from '@r2shelf/shared';
+import { ERROR_CODES, MAX_FILE_SIZE } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 import { s3Put, s3Get, s3Delete } from '../lib/s3client';

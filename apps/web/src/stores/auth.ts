@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User } from '@r2shelf/shared';
+import type { User } from '@osshelf/shared';
 
 interface AuthState {
   user: User | null;

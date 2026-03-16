@@ -5,7 +5,7 @@ import { FileIcon } from '@/components/ui/FileIcon';
 import { filesApi } from '@/services/api';
 import { formatBytes, formatDate } from '@/utils';
 import { isPreviewable } from '@/utils/fileTypes';
-import type { FileItem } from '@r2shelf/shared';
+import type { FileItem } from '@osshelf/shared';
 import { cn } from '@/lib/utils';
 
 interface FilePreviewProps {

@@ -4,7 +4,7 @@ import { filesApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Folder, ChevronRight, Home, Loader2 } from 'lucide-react';
 import { cn } from '@/utils';
-import type { FileItem } from '@r2shelf/shared';
+import type { FileItem } from '@osshelf/shared';
 
 interface MoveFolderPickerProps {
   /** The file(s) being moved — we exclude them from the picker */

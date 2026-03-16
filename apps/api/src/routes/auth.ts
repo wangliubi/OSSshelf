@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { getDb, users } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { signJWT, hashPassword, verifyPassword } from '../lib/crypto';
-import { JWT_EXPIRY, ERROR_CODES } from '@r2shelf/shared';
+import { JWT_EXPIRY, ERROR_CODES } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 

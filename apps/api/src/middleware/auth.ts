@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import { verifyJWT } from '../lib/crypto';
-import { ERROR_CODES } from '@r2shelf/shared';
+import { ERROR_CODES } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
 
 type AppEnv = { Bindings: Env; Variables: Variables };

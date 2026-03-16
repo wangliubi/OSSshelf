@@ -37,7 +37,7 @@ import {
   Image as ImageIcon, FolderInput, Database, ChevronDown,
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
-import type { FileItem } from '@r2shelf/shared';
+import type { FileItem } from '@osshelf/shared';
 import { cn } from '@/utils';
 
 

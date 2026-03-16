@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import { getDb, storageBuckets } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { ERROR_CODES } from '@r2shelf/shared';
+import { ERROR_CODES } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 
