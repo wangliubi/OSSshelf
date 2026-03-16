@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>基于 Cloudflare 部署的多厂商 OSS 文件管理系统</strong><br>
-  <sub>统一管理主流对象存储 · 支持 WebDAV 协议 · 安全分享 · 响应式界面</sub>
+  <sub>统一管理主流对象存储 · 支持 WebDAV 协议 · 预签名直传 · 安全分享</sub>
 </p>
 
 <p align="center">
@@ -36,6 +36,7 @@
 | 功能 | 描述 |
 |------|------|
 | 📁 **文件管理** | 上传、下载、重命名、移动、删除文件和文件夹，支持拖拽上传 |
+| 🚀 **预签名直传** | 浏览器直传到对象存储，支持大文件分片上传（>100MB），绕过 Worker 代理限制 |
 | 🔗 **文件分享** | 创建分享链接，支持密码保护、过期时间、下载次数限制 |
 | 🗑️ **回收站** | 软删除机制，支持恢复已删除文件，可永久删除或清空 |
 | 📊 **存储配额** | 用户级别和存储桶级别的存储空间管理 |
@@ -51,9 +52,9 @@
 |------|------|
 | `PROPFIND` | 列出目录内容 |
 | `GET/HEAD` | 下载文件 |
-| `PUT` | 上传文件 |
+| `PUT` | 上传文件（自动创建父目录） |
 | `MKCOL` | 创建文件夹 |
-| `DELETE` | 删除文件/文件夹 |
+| `DELETE` | 删除文件/文件夹（永久删除） |
 | `MOVE` | 移动/重命名 |
 | `COPY` | 复制文件 |
 
@@ -88,7 +89,7 @@
 │                        API 服务层                            │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  Hono Framework + Cloudflare Workers                 │   │
-│  │  REST API + WebDAV Protocol                          │   │
+│  │  REST API + WebDAV Protocol + Presigned URL          │   │
 │  │  S3 兼容存储客户端（多厂商支持）                       │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
@@ -97,11 +98,12 @@
               ▼               ▼               ▼
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
 │  Cloudflare D1  │ │  多厂商对象存储   │ │  Cloudflare KV  │
-│   (SQLite)      │ │  (S3 兼容 API)   │ │   (Cache)       │
+│   (SQLite)      │ │  (S3 兼容 API)   │ │   (可选)        │
 │                 │ │                 │ │                 │
 │  - 用户数据     │ │  - 文件内容     │ │  - Session      │
 │  - 文件元数据   │ │  - 支持大文件   │ │  - 临时缓存     │
 │  - 存储桶配置   │ │  - 跨厂商兼容   │ │                 │
+│  - WebDAV会话   │ │  - 直传支持     │ │                 │
 └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
@@ -111,34 +113,34 @@
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| React | 18.2 | UI 框架 |
-| TypeScript | 5.3 | 类型安全 |
-| Vite | 5.1 | 构建工具 |
-| Tailwind CSS | 3.4 | 样式框架 |
-| Zustand | 4.5 | 状态管理 |
-| React Query | 5.24 | 服务端状态 |
-| React Router | 6.22 | 路由管理 |
-| Radix UI | - | 无障碍组件 |
-| Lucide | - | 图标库 |
-| Axios | 1.6 | HTTP 客户端 |
+| React | ^18.2.0 | UI 框架 |
+| TypeScript | ^5.3.0 | 类型安全 |
+| Vite | ^5.1.0 | 构建工具 |
+| Tailwind CSS | ^3.4.0 | 样式框架 |
+| Zustand | ^4.5.0 | 状态管理 |
+| React Query | ^5.24.0 | 服务端状态 |
+| React Router | ^6.22.0 | 路由管理 |
+| Radix UI | ^1.0.x | 无障碍组件 |
+| Lucide | ^0.344.0 | 图标库 |
+| Axios | ^1.6.0 | HTTP 客户端 |
+| react-dropzone | ^14.2.3 | 文件拖拽上传 |
 
 #### 后端 (apps/api)
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| Hono | 4.0 | Web 框架 |
-| Cloudflare Workers | - | Serverless 运行时 |
-| Drizzle ORM | 0.29 | 数据库 ORM |
-| Zod | 3.22 | 参数验证 |
-| JWT | - | 身份认证 |
+| Hono | ^4.0.0 | Web 框架 |
+| Cloudflare Workers | ^3.24.0 | Serverless 运行时 |
+| Drizzle ORM | ^0.29.0 | 数据库 ORM |
+| Zod | ^3.22.0 | 参数验证 |
 
 #### 云服务
 
 | 服务 | 用途 |
 |------|------|
-| Cloudflare D1 | SQLite 数据库，存储用户、文件元数据和存储桶配置 |
-| Cloudflare KV | 键值存储，Session 管理 |
-| 多厂商对象存储 | 通过 S3 兼容 API 存储文件内容 |
+| Cloudflare D1 | SQLite 数据库，存储用户、文件元数据、存储桶配置、WebDAV 会话 |
+| Cloudflare KV | 键值存储（可选），Session 管理 |
+| 多厂商对象存储 | 通过 S3 兼容 API 存储文件内容，支持预签名直传 |
 
 ---
 
@@ -178,9 +180,11 @@ OSSshelf/
 │   │   │   │   ├── error.ts          # 错误处理中间件
 │   │   │   │   └── index.ts
 │   │   │   ├── routes/
+│   │   │   │   ├── admin.ts          # 管理员路由
 │   │   │   │   ├── auth.ts           # 认证路由 (注册/登录/用户信息)
 │   │   │   │   ├── buckets.ts        # 存储桶管理路由
 │   │   │   │   ├── files.ts          # 文件操作路由
+│   │   │   │   ├── presign.ts        # 预签名 URL 路由
 │   │   │   │   ├── share.ts          # 分享路由
 │   │   │   │   ├── webdav.ts         # WebDAV 协议实现
 │   │   │   │   └── index.ts
@@ -214,7 +218,8 @@ OSSshelf/
 │       │   ├── hooks/
 │       │   │   └── useFolderUpload.ts    # 文件夹上传 Hook
 │       │   ├── pages/
-│       │   │   ├── Buckets.tsx          # 存储桶管理页面
+│       │   │   ├── Admin.tsx             # 管理员页面
+│       │   │   ├── Buckets.tsx           # 存储桶管理页面
 │       │   │   ├── Dashboard.tsx         # 仪表盘
 │       │   │   ├── Files.tsx             # 文件列表
 │       │   │   ├── Shares.tsx            # 分享管理
@@ -224,7 +229,8 @@ OSSshelf/
 │       │   │   ├── Register.tsx
 │       │   │   └── SharePage.tsx         # 公开分享页面
 │       │   ├── services/
-│       │   │   └── api.ts                # API 请求封装
+│       │   │   ├── api.ts                # API 请求封装
+│       │   │   └── presignUpload.ts      # 预签名上传服务
 │       │   ├── stores/
 │       │   │   ├── auth.ts               # 认证状态
 │       │   │   └── files.ts              # 文件状态
@@ -297,7 +303,7 @@ wrangler login
 wrangler d1 create ossshelf-db
 # 记录返回的 database_id，填入 wrangler.toml
 
-# 创建 KV 命名空间
+# 创建 KV 命名空间（可选）
 wrangler kv:namespace create KV
 # 记录返回的 id，填入 wrangler.toml
 ```
@@ -317,7 +323,7 @@ database_id = "your-d1-database-id"    # 替换为实际 ID
 
 [[kv_namespaces]]
 binding = "KV"
-id = "your-kv-namespace-id"            # 替换为实际 ID
+id = "your-kv-namespace-id"            # 替换为实际 ID（可选）
 
 [vars]
 ENVIRONMENT = "development"
@@ -340,11 +346,11 @@ pnpm db:migrate
 # 终端 1: 启动 API 服务 (端口 8787)
 pnpm dev:api
 
-# 终端 2: 启动 Web 服务 (端口 3000)
+# 终端 2: 启动 Web 服务 (端口 5173)
 pnpm dev:web
 ```
 
-访问 http://localhost:3000 开始使用。
+访问 http://localhost:5173 开始使用。
 
 ---
 
@@ -374,7 +380,9 @@ pnpm dev:web
 | `MAX_FILE_SIZE` | 5GB | 单文件最大大小 |
 | `DEFAULT_STORAGE_QUOTA` | 10GB | 默认用户存储配额 |
 | `JWT_EXPIRY` | 7天 | JWT 令牌有效期 |
+| `WEBDAV_SESSION_EXPIRY` | 30天 | WebDAV 会话有效期 |
 | `SHARE_DEFAULT_EXPIRY` | 7天 | 分享链接默认有效期 |
+| `UPLOAD_CHUNK_SIZE` | 10MB | 分片上传块大小 |
 
 ### 存储桶配置
 
@@ -453,6 +461,142 @@ GET /api/auth/me
 Authorization: Bearer <token>
 ```
 
+### 预签名上传接口
+
+预签名上传允许浏览器直接向对象存储上传文件，绕过 Worker 代理限制，支持大文件分片上传。
+
+#### 获取上传预签名 URL
+
+```http
+POST /api/presign/upload
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileName": "example.zip",
+  "fileSize": 52428800,
+  "mimeType": "application/zip",
+  "parentId": null,      // 可选
+  "bucketId": null       // 可选
+}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://bucket.s3.region.amazonaws.com/...",
+    "fileId": "uuid",
+    "r2Key": "files/userId/fileId/example.zip",
+    "bucketId": "bucket-uuid",
+    "expiresIn": 3600
+  }
+}
+```
+
+若返回 `{ "useProxy": true }`，则需使用传统的 `/api/files/upload` 代理上传。
+
+#### 确认上传完成
+
+```http
+POST /api/presign/confirm
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileId": "uuid",
+  "fileName": "example.zip",
+  "fileSize": 52428800,
+  "mimeType": "application/zip",
+  "parentId": null,
+  "r2Key": "files/userId/fileId/example.zip",
+  "bucketId": "bucket-uuid"
+}
+```
+
+#### 分片上传初始化（大文件 >100MB）
+
+```http
+POST /api/presign/multipart/init
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileName": "large-file.iso",
+  "fileSize": 5368709120,
+  "mimeType": "application/octet-stream",
+  "parentId": null,
+  "bucketId": null
+}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "uploadId": "upload-id-from-s3",
+    "fileId": "uuid",
+    "r2Key": "files/userId/fileId/large-file.iso",
+    "bucketId": "bucket-uuid",
+    "firstPartUrl": "https://presigned-url-for-part-1"
+  }
+}
+```
+
+#### 获取分片上传 URL
+
+```http
+POST /api/presign/multipart/part
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "r2Key": "files/userId/fileId/large-file.iso",
+  "uploadId": "upload-id",
+  "partNumber": 2,
+  "bucketId": "bucket-uuid"
+}
+```
+
+#### 完成分片上传
+
+```http
+POST /api/presign/multipart/complete
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileId": "uuid",
+  "fileName": "large-file.iso",
+  "fileSize": 5368709120,
+  "mimeType": "application/octet-stream",
+  "parentId": null,
+  "r2Key": "files/userId/fileId/large-file.iso",
+  "uploadId": "upload-id",
+  "bucketId": "bucket-uuid",
+  "parts": [
+    { "partNumber": 1, "etag": "etag-1" },
+    { "partNumber": 2, "etag": "etag-2" }
+  ]
+}
+```
+
+#### 获取下载预签名 URL
+
+```http
+GET /api/presign/download/:fileId
+Authorization: Bearer <token>
+```
+
+#### 获取预览预签名 URL
+
+```http
+GET /api/presign/preview/:fileId
+Authorization: Bearer <token>
+```
+
 ### 存储桶接口
 
 #### 列出存储桶
@@ -509,7 +653,7 @@ Authorization: Bearer <token>
 
 ### 文件接口
 
-#### 上传文件
+#### 上传文件（代理模式）
 
 ```http
 POST /api/files/upload
@@ -567,7 +711,7 @@ Content-Type: application/json
 |------|------|------|
 | 列出目录 | `PROPFIND` | Depth: 0 (当前), 1 (包含子项) |
 | 下载文件 | `GET` | - |
-| 上传文件 | `PUT` | 覆盖已存在文件 |
+| 上传文件 | `PUT` | 自动创建父目录，覆盖已存在文件 |
 | 创建目录 | `MKCOL` | - |
 | 删除 | `DELETE` | 永久删除，不进回收站 |
 | 移动/重命名 | `MOVE` | 需要 Destination 头 |
@@ -698,6 +842,7 @@ files: {
   size: number         // 大小 (字节)
   r2Key: string        // 存储键
   mimeType: string     // MIME 类型
+  hash: string         // 文件哈希（预留）
   isFolder: boolean
   deletedAt: string    // 软删除时间
   bucketId: string     // 存储桶 ID
@@ -736,6 +881,15 @@ shares: {
   expiresAt: string    // 过期时间
   downloadLimit: number // 下载次数限制
   downloadCount: number // 已下载次数
+  createdAt: string
+}
+
+// WebDAV 会话表
+webdavSessions: {
+  id: string
+  userId: string       // 所属用户
+  token: string        // 会话令牌
+  expiresAt: string    // 过期时间
   createdAt: string
 }
 ```

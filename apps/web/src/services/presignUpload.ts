@@ -123,7 +123,6 @@ export async function presignUpload({
 async function singlePresignUpload({
   file, parentId, bucketId, onProgress, onFallback,
 }: PresignUploadOptions): Promise<UploadedFile> {
-  // Step 1: Request presigned URL
   const presign = await apiPost<PresignUploadResponse>('/api/presign/upload', {
     fileName: file.name,
     fileSize: file.size,
@@ -132,7 +131,6 @@ async function singlePresignUpload({
     bucketId,
   });
 
-  // Fallback to proxy
   if (presign.useProxy) {
     onFallback?.();
     return proxyUpload({ file, parentId, bucketId, onProgress });
@@ -143,10 +141,18 @@ async function singlePresignUpload({
     throw new Error('预签名上传：服务器返回了无效的响应');
   }
 
-  // Step 2: Upload directly to S3
-  await directPut(uploadUrl, file, file.type || 'application/octet-stream', onProgress);
+  try {
+    await directPut(uploadUrl, file, file.type || 'application/octet-stream', onProgress);
+  } catch (error) {
+    if (isCorsError(error) && !corsErrorDetected) {
+      console.warn('检测到 CORS 错误，切换到代理上传模式');
+      corsErrorDetected = true;
+      onFallback?.();
+      return proxyUpload({ file, parentId, bucketId, onProgress });
+    }
+    throw error;
+  }
 
-  // Step 3: Confirm — write DB record
   const result = await apiPost<UploadedFile>('/api/presign/confirm', {
     fileId,
     fileName: file.name,
@@ -350,9 +356,9 @@ function directPut(
       }
     };
 
-    xhr.onerror = () => reject(new Error('直传网络错误'));
+    xhr.onerror = () => reject(new Error('直传网络错误（可能是 CORS 问题）'));
     xhr.ontimeout = () => reject(new Error('直传请求超时'));
-    xhr.timeout = 3600 * 1000; // 1 hour max per request
+    xhr.timeout = 3600 * 1000;
 
     xhr.send(body);
   });
