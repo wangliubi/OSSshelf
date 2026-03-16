@@ -100,6 +100,7 @@ export interface AuthLoginParams {
 
 export interface AuthRegisterParams extends AuthLoginParams {
   name?: string;
+  inviteCode?: string;
 }
 
 export interface AuthResponse {

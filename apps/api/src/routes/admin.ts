@@ -1,0 +1,291 @@
+/**
+ * admin.ts — Admin-only API (Phase 5 P1)
+ *
+ * All routes require role = 'admin'.
+ *
+ * User management
+ * ───────────────
+ *  GET    /api/admin/users               list all users
+ *  GET    /api/admin/users/:id           get single user
+ *  PATCH  /api/admin/users/:id           update quota / role / name
+ *  DELETE /api/admin/users/:id           delete user account
+ *
+ * Registration control
+ * ────────────────────
+ *  GET    /api/admin/registration        get current config
+ *  PUT    /api/admin/registration        update open/closed + invite codes
+ *  POST   /api/admin/registration/codes  generate invite code(s)
+ *  DELETE /api/admin/registration/codes/:code  revoke a code
+ *
+ * System stats
+ * ────────────
+ *  GET    /api/admin/stats               global storage + user summary
+ */
+
+import { Hono } from 'hono';
+import { eq, and, isNull, isNotNull } from 'drizzle-orm';
+import { getDb, users, files, storageBuckets } from '../db';
+import { authMiddleware } from '../middleware/auth';
+import { ERROR_CODES } from '@osshelf/shared';
+import type { Env, Variables } from '../types/env';
+import { z } from 'zod';
+import { hashPassword } from '../lib/crypto';
+
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// ── Admin auth guard ──────────────────────────────────────────────────────
+
+app.use('*', authMiddleware);
+
+app.use('*', async (c, next) => {
+  const userId = c.get('userId');
+  if (!userId) {
+    return c.json({ success: false, error: { code: ERROR_CODES.UNAUTHORIZED, message: '未授权' } }, 401);
+  }
+  const db = getDb(c.env.DB);
+  const user = await db.select().from(users).where(eq(users.id, userId)).get();
+  if (!user || user.role !== 'admin') {
+    return c.json({ success: false, error: { code: ERROR_CODES.FORBIDDEN, message: '需要管理员权限' } }, 403);
+  }
+  // Store full user for downstream handlers
+  c.set('user', { id: user.id, email: user.email, role: user.role });
+  await next();
+});
+
+// ── Schemas ───────────────────────────────────────────────────────────────
+
+const patchUserSchema = z.object({
+  name: z.string().max(100).optional(),
+  role: z.enum(['admin', 'user']).optional(),
+  storageQuota: z.number().int().min(0).optional(),  // bytes; 0 = no quota
+  newPassword: z.string().min(6).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: '至少提供一个更新字段' });
+
+const registrationSchema = z.object({
+  open: z.boolean().optional(),
+  requireInviteCode: z.boolean().optional(),
+});
+
+// ── KV key helpers ────────────────────────────────────────────────────────
+
+const REG_CONFIG_KEY = 'admin:registration_config';
+const INVITE_PREFIX = 'admin:invite:';
+
+interface RegistrationConfig {
+  open: boolean;
+  requireInviteCode: boolean;
+}
+
+async function getRegConfig(kv: KVNamespace): Promise<RegistrationConfig> {
+  const raw = await kv.get(REG_CONFIG_KEY);
+  if (!raw) return { open: true, requireInviteCode: false };
+  try { return JSON.parse(raw); } catch { return { open: true, requireInviteCode: false }; }
+}
+
+// ── GET /api/admin/users ──────────────────────────────────────────────────
+
+app.get('/users', async (c) => {
+  const db = getDb(c.env.DB);
+  const allUsers = await db.select().from(users).all();
+
+  // Attach bucket count per user (fast: single query per user is fine for admin view)
+  const enriched = await Promise.all(allUsers.map(async (u) => {
+    const buckets = await db.select().from(storageBuckets).where(eq(storageBuckets.userId, u.id)).all();
+    const fileCount = await db.select({ id: files.id }).from(files)
+      .where(and(eq(files.userId, u.id), isNull(files.deletedAt))).all();
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      storageQuota: u.storageQuota,
+      storageUsed: u.storageUsed,
+      fileCount: fileCount.length,
+      bucketCount: buckets.length,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    };
+  }));
+
+  return c.json({ success: true, data: enriched });
+});
+
+// ── GET /api/admin/users/:id ──────────────────────────────────────────────
+
+app.get('/users/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = getDb(c.env.DB);
+  const user = await db.select().from(users).where(eq(users.id, id)).get();
+  if (!user) {
+    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '用户不存在' } }, 404);
+  }
+  const { passwordHash: _pw, ...safe } = user;
+  return c.json({ success: true, data: safe });
+});
+
+// ── PATCH /api/admin/users/:id ────────────────────────────────────────────
+
+app.patch('/users/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const result = patchUserSchema.safeParse(body);
+  if (!result.success) {
+    return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: result.error.errors[0].message } }, 400);
+  }
+
+  const db = getDb(c.env.DB);
+  const user = await db.select().from(users).where(eq(users.id, id)).get();
+  if (!user) {
+    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '用户不存在' } }, 404);
+  }
+
+  const now = new Date().toISOString();
+  const updateData: Record<string, unknown> = { updatedAt: now };
+
+  const { name, role, storageQuota, newPassword } = result.data;
+  if (name !== undefined) updateData.name = name;
+  if (role !== undefined) updateData.role = role;
+  if (storageQuota !== undefined) updateData.storageQuota = storageQuota === 0 ? null : storageQuota;
+  if (newPassword) updateData.passwordHash = await hashPassword(newPassword);
+
+  await db.update(users).set(updateData).where(eq(users.id, id));
+
+  return c.json({ success: true, data: { message: '用户已更新' } });
+});
+
+// ── DELETE /api/admin/users/:id ───────────────────────────────────────────
+
+app.delete('/users/:id', async (c) => {
+  const adminId = c.get('userId')!;
+  const id = c.req.param('id');
+
+  if (id === adminId) {
+    return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '不能删除自己的账户' } }, 400);
+  }
+
+  const db = getDb(c.env.DB);
+  const user = await db.select().from(users).where(eq(users.id, id)).get();
+  if (!user) {
+    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '用户不存在' } }, 404);
+  }
+
+  // Cascade: files + buckets + sessions are deleted via DB ON DELETE CASCADE
+  await db.delete(users).where(eq(users.id, id));
+
+  return c.json({ success: true, data: { message: '用户已删除' } });
+});
+
+// ── GET /api/admin/registration ───────────────────────────────────────────
+
+app.get('/registration', async (c) => {
+  const config = await getRegConfig(c.env.KV);
+
+  // List active invite codes
+  const list = await c.env.KV.list({ prefix: INVITE_PREFIX });
+  const codes = await Promise.all(list.keys.map(async ({ name }) => {
+    const raw = await c.env.KV.get(name);
+    const code = name.replace(INVITE_PREFIX, '');
+    try {
+      const meta = raw ? JSON.parse(raw) : {};
+      return { code, ...meta };
+    } catch {
+      return { code, usedBy: null, createdAt: null };
+    }
+  }));
+
+  return c.json({ success: true, data: { ...config, inviteCodes: codes } });
+});
+
+// ── PUT /api/admin/registration ───────────────────────────────────────────
+
+app.put('/registration', async (c) => {
+  const body = await c.req.json();
+  const result = registrationSchema.safeParse(body);
+  if (!result.success) {
+    return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: result.error.errors[0].message } }, 400);
+  }
+
+  const current = await getRegConfig(c.env.KV);
+  const updated: RegistrationConfig = { ...current, ...result.data };
+  await c.env.KV.put(REG_CONFIG_KEY, JSON.stringify(updated));
+
+  return c.json({ success: true, data: updated });
+});
+
+// ── POST /api/admin/registration/codes ────────────────────────────────────
+
+app.post('/registration/codes', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const count = Math.max(1, Math.min(50, Number(body.count) || 1));
+
+  const codes: string[] = [];
+  const now = new Date().toISOString();
+
+  for (let i = 0; i < count; i++) {
+    // Format: XXXX-XXXX-XXXX (base32 style)
+    const code = generateInviteCode();
+    await c.env.KV.put(
+      `${INVITE_PREFIX}${code}`,
+      JSON.stringify({ usedBy: null, createdAt: now }),
+      { expirationTtl: 60 * 60 * 24 * 30 }, // 30 days
+    );
+    codes.push(code);
+  }
+
+  return c.json({ success: true, data: { codes, createdAt: now } });
+});
+
+// ── DELETE /api/admin/registration/codes/:code ────────────────────────────
+
+app.delete('/registration/codes/:code', async (c) => {
+  const code = c.req.param('code');
+  await c.env.KV.delete(`${INVITE_PREFIX}${code}`);
+  return c.json({ success: true, data: { message: '邀请码已撤销' } });
+});
+
+// ── GET /api/admin/stats ──────────────────────────────────────────────────
+
+app.get('/stats', async (c) => {
+  const db = getDb(c.env.DB);
+
+  const allUsers = await db.select().from(users).all();
+  const allFiles = await db.select().from(files).where(isNull(files.deletedAt)).all();
+  const allBuckets = await db.select().from(storageBuckets).all();
+
+  const totalStorage = allUsers.reduce((sum, u) => sum + (u.storageUsed ?? 0), 0);
+  const totalQuota = allUsers.reduce((sum, u) => sum + (u.storageQuota ?? 0), 0);
+
+  // Per-provider breakdown
+  const providerBreakdown: Record<string, { bucketCount: number; storageUsed: number }> = {};
+  for (const b of allBuckets) {
+    if (!providerBreakdown[b.provider]) {
+      providerBreakdown[b.provider] = { bucketCount: 0, storageUsed: 0 };
+    }
+    providerBreakdown[b.provider].bucketCount++;
+    providerBreakdown[b.provider].storageUsed += b.storageUsed ?? 0;
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      userCount: allUsers.length,
+      adminCount: allUsers.filter((u) => u.role === 'admin').length,
+      fileCount: allFiles.length,
+      folderCount: allFiles.filter((f) => f.isFolder).length,
+      bucketCount: allBuckets.length,
+      totalStorageUsed: totalStorage,
+      totalStorageQuota: totalQuota,
+      providerBreakdown,
+    },
+  });
+});
+
+// ── Helper ────────────────────────────────────────────────────────────────
+
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
+  const segment = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${segment()}-${segment()}-${segment()}`;
+}
+
+export default app;

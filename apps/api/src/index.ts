@@ -8,6 +8,8 @@ import filesRoutes from './routes/files';
 import shareRoutes from './routes/share';
 import webdavRoutes from './routes/webdav';
 import bucketsRoutes from './routes/buckets';
+import presignRoutes from './routes/presign';
+import adminRoutes from './routes/admin';
 import { errorHandler } from './middleware/error';
 import type { Env } from './types/env';
 
@@ -48,6 +50,8 @@ app.route('/api/auth', authRoutes);
 app.route('/api/files', filesRoutes);
 app.route('/api/share', shareRoutes);
 app.route('/api/buckets', bucketsRoutes);
+app.route('/api/presign', presignRoutes);
+app.route('/api/admin', adminRoutes);
 app.route('/dav', webdavRoutes);
 
 app.notFound((c) => {

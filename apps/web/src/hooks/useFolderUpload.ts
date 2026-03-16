@@ -11,6 +11,7 @@
 
 import { useCallback } from 'react';
 import { filesApi } from '@/services/api';
+import { presignUpload } from '@/services/presignUpload';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface UseFolderUploadOptions {
@@ -129,7 +130,11 @@ export function useFolderUpload({
         onFileStart?.(file.name, key);
 
         try {
-          await filesApi.upload(file, parentId, (progress) => onFileProgress?.(key, progress));
+          await presignUpload({
+            file,
+            parentId,
+            onProgress: (progress) => onFileProgress?.(key, progress),
+          });
           onFileDone?.(key);
         } catch (e) {
           onFileError?.(key, e);

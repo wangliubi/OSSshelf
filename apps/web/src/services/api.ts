@@ -261,3 +261,61 @@ export const bucketsApi = {
   delete: (id: string) =>
     api.delete<ApiResponse<{ message: string }>>(`/api/buckets/${id}`),
 };
+
+// ── Admin ─────────────────────────────────────────────────────────────────
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'admin' | 'user';
+  storageQuota: number;
+  storageUsed: number;
+  fileCount: number;
+  bucketCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminStats {
+  userCount: number;
+  adminCount: number;
+  fileCount: number;
+  folderCount: number;
+  bucketCount: number;
+  totalStorageUsed: number;
+  totalStorageQuota: number;
+  providerBreakdown: Record<string, { bucketCount: number; storageUsed: number }>;
+}
+
+export interface RegistrationConfig {
+  open: boolean;
+  requireInviteCode: boolean;
+  inviteCodes: Array<{ code: string; usedBy: string | null; createdAt: string | null }>;
+}
+
+export const adminApi = {
+  // Users
+  listUsers: () =>
+    api.get<ApiResponse<AdminUser[]>>('/api/admin/users'),
+  getUser: (id: string) =>
+    api.get<ApiResponse<AdminUser>>(`/api/admin/users/${id}`),
+  patchUser: (id: string, data: { name?: string; role?: 'admin' | 'user'; storageQuota?: number; newPassword?: string }) =>
+    api.patch<ApiResponse<{ message: string }>>(`/api/admin/users/${id}`, data),
+  deleteUser: (id: string) =>
+    api.delete<ApiResponse<{ message: string }>>(`/api/admin/users/${id}`),
+
+  // Registration control
+  getRegistration: () =>
+    api.get<ApiResponse<RegistrationConfig>>('/api/admin/registration'),
+  setRegistration: (data: { open?: boolean; requireInviteCode?: boolean }) =>
+    api.put<ApiResponse<RegistrationConfig>>('/api/admin/registration', data),
+  generateCodes: (count = 1) =>
+    api.post<ApiResponse<{ codes: string[]; createdAt: string }>>('/api/admin/registration/codes', { count }),
+  revokeCode: (code: string) =>
+    api.delete<ApiResponse<{ message: string }>>(`/api/admin/registration/codes/${code}`),
+
+  // Stats
+  stats: () =>
+    api.get<ApiResponse<AdminStats>>('/api/admin/stats'),
+};

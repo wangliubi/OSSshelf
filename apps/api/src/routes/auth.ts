@@ -13,7 +13,21 @@ const registerSchema = z.object({
   email: z.string().email('邮箱格式不正确'),
   password: z.string().min(6, '密码至少6个字符'),
   name: z.string().optional(),
+  inviteCode: z.string().optional(),
 });
+
+// ── Registration config helpers ───────────────────────────────────────────
+
+const REG_CONFIG_KEY = 'admin:registration_config';
+const INVITE_PREFIX = 'admin:invite:';
+
+interface RegConfig { open: boolean; requireInviteCode: boolean; }
+
+async function getRegConfig(kv: KVNamespace): Promise<RegConfig> {
+  const raw = await kv.get(REG_CONFIG_KEY);
+  if (!raw) return { open: true, requireInviteCode: false };
+  try { return JSON.parse(raw); } catch { return { open: true, requireInviteCode: false }; }
+}
 
 const loginSchema = z.object({
   email: z.string().email('邮箱格式不正确'),
@@ -45,8 +59,46 @@ app.post('/register', async (c) => {
     );
   }
 
-  const { email, password, name } = result.data;
+  const { email, password, name, inviteCode } = result.data;
   const db = getDb(c.env.DB);
+
+  // ── Registration gate ──────────────────────────────────────────────────
+  const regConfig = await getRegConfig(c.env.KV);
+  const allUsers = await db.select({ id: users.id }).from(users).all();
+  const isFirstUser = allUsers.length === 0;
+
+  if (!isFirstUser) {
+    if (!regConfig.open) {
+      return c.json(
+        { success: false, error: { code: 'REGISTRATION_CLOSED', message: '注册已关闭，请联系管理员' } },
+        403,
+      );
+    }
+    if (regConfig.requireInviteCode) {
+      if (!inviteCode) {
+        return c.json(
+          { success: false, error: { code: 'INVITE_CODE_REQUIRED', message: '需要邀请码才能注册' } },
+          403,
+        );
+      }
+      const codeKey = `${INVITE_PREFIX}${inviteCode.toUpperCase()}`;
+      const codeMeta = await c.env.KV.get(codeKey);
+      if (!codeMeta) {
+        return c.json(
+          { success: false, error: { code: 'INVITE_CODE_INVALID', message: '邀请码无效或已过期' } },
+          403,
+        );
+      }
+      let meta: { usedBy: string | null } = { usedBy: null };
+      try { meta = JSON.parse(codeMeta); } catch { /* ignore */ }
+      if (meta.usedBy) {
+        return c.json(
+          { success: false, error: { code: 'INVITE_CODE_USED', message: '邀请码已被使用' } },
+          403,
+        );
+      }
+    }
+  }
 
   const existingUser = await db.select().from(users).where(eq(users.email, email)).get();
   if (existingUser) {
@@ -59,14 +111,25 @@ app.post('/register', async (c) => {
   const passwordHash = await hashPassword(password);
   const userId = crypto.randomUUID();
   const now = new Date().toISOString();
+  // First registered user becomes admin
+  const role = isFirstUser ? 'admin' : 'user';
 
   await db.insert(users).values({
     id: userId, email, passwordHash, name: name || null,
-    role: 'user', storageQuota: 10737418240, storageUsed: 0,
+    role, storageQuota: 10737418240, storageUsed: 0,
     createdAt: now, updatedAt: now,
   });
 
-  const token = await signJWT({ userId, email, role: 'user' }, c.env.JWT_SECRET);
+  // Mark invite code as used
+  if (!isFirstUser && regConfig.requireInviteCode && inviteCode) {
+    await c.env.KV.put(
+      `${INVITE_PREFIX}${inviteCode.toUpperCase()}`,
+      JSON.stringify({ usedBy: userId, usedAt: now, createdAt: now }),
+      { expirationTtl: 60 * 60 * 24 * 30 },
+    );
+  }
+
+  const token = await signJWT({ userId, email, role }, c.env.JWT_SECRET);
   await c.env.KV.put(`session:${token}`, JSON.stringify({ userId, email }), {
     expirationTtl: Math.floor(JWT_EXPIRY / 1000),
   });
@@ -74,7 +137,7 @@ app.post('/register', async (c) => {
   return c.json({
     success: true,
     data: {
-      user: { id: userId, email, name: name || null, role: 'user', storageQuota: 10737418240, storageUsed: 0, createdAt: now, updatedAt: now },
+      user: { id: userId, email, name: name || null, role, storageQuota: 10737418240, storageUsed: 0, createdAt: now, updatedAt: now },
       token,
     },
   });

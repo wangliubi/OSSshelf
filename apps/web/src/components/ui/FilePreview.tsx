@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, Download, Share2, ExternalLink, FileText, Volume2 } from 'lucide-react';
+import { X, Download, Share2, FileText, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileIcon } from '@/components/ui/FileIcon';
 import { filesApi } from '@/services/api';
+import { getPresignedPreviewUrl } from '@/services/presignUpload';
 import { formatBytes, formatDate } from '@/utils';
 import { isPreviewable } from '@/utils/fileTypes';
 import type { FileItem } from '@osshelf/shared';
@@ -19,9 +20,9 @@ interface FilePreviewProps {
 export function FilePreview({ file, token, onClose, onDownload, onShare }: FilePreviewProps) {
   const [textContent, setTextContent] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  const previewUrl = filesApi.previewUrl(file.id);
   const canPreview = isPreviewable(file.mimeType);
   const isImage = file.mimeType?.startsWith('image/');
   const isVideo = file.mimeType?.startsWith('video/');
@@ -29,43 +30,36 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   const isPdf = file.mimeType === 'application/pdf';
   const isText = file.mimeType?.startsWith('text/');
 
-  // Fetch text content for text files
   useEffect(() => {
-    if (isText && canPreview) {
-      fetch(previewUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => r.text())
-        .then((t) => setTextContent(t))
-        .catch(() => setLoadError(true));
-    }
-  }, [file.id, isText, canPreview, previewUrl, token]);
+    let cancelled = false;
+    setResolvedUrl(null);
+    setLoadError(false);
+    setTextContent(null);
 
-  // Close on Escape
+    getPresignedPreviewUrl(file.id).then(({ url }) => {
+      if (!cancelled) setResolvedUrl(url);
+    }).catch(() => {
+      if (!cancelled) {
+        setResolvedUrl(`${filesApi.previewUrl(file.id)}?token=${encodeURIComponent(token)}`);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [file.id, token]);
+
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    if (!isText || !canPreview || !resolvedUrl) return;
+    fetch(resolvedUrl)
+      .then((r) => r.text())
+      .then((t) => setTextContent(t))
+      .catch(() => setLoadError(true));
+  }, [resolvedUrl, isText, canPreview]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
-
-  // Authenticated src for img/video/audio (we pass token via URL query for media elements)
-  // Since the preview endpoint requires auth header, we use a blob URL approach for images
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if ((isImage || isVideo || isAudio) && canPreview) {
-      fetch(previewUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => r.blob())
-        .then((b) => setBlobUrl(URL.createObjectURL(b)))
-        .catch(() => setLoadError(true));
-    }
-    return () => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [file.id]);
 
   return (
     <div
@@ -87,7 +81,6 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
             : 'w-full max-w-md'
         )}
       >
-        {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b flex-shrink-0">
           <FileIcon mimeType={file.mimeType} isFolder={file.isFolder} size="sm" />
           <div className="flex-1 min-w-0">
@@ -109,7 +102,6 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
           </div>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-auto flex items-center justify-center min-h-0">
           {loadError ? (
             <div className="text-center py-12 text-muted-foreground px-6">
@@ -129,28 +121,22 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
                 下载文件
               </Button>
             </div>
+          ) : !resolvedUrl ? (
+            <div className="text-muted-foreground text-sm py-12">加载中...</div>
           ) : isImage ? (
-            blobUrl ? (
-              <img
-                src={blobUrl}
-                alt={file.name}
-                className="max-w-full max-h-full object-contain"
-                onError={() => setLoadError(true)}
-              />
-            ) : (
-              <div className="text-muted-foreground text-sm py-12">加载中...</div>
-            )
+            <img
+              src={resolvedUrl}
+              alt={file.name}
+              className="max-w-full max-h-full object-contain"
+              onError={() => setLoadError(true)}
+            />
           ) : isVideo ? (
-            blobUrl ? (
-              <video
-                src={blobUrl}
-                controls
-                className="max-w-full max-h-full"
-                onError={() => setLoadError(true)}
-              />
-            ) : (
-              <div className="text-muted-foreground text-sm py-12">加载中...</div>
-            )
+            <video
+              src={resolvedUrl}
+              controls
+              className="max-w-full max-h-full"
+              onError={() => setLoadError(true)}
+            />
           ) : isAudio ? (
             <div className="p-8 w-full space-y-4">
               <div className="flex items-center justify-center">
@@ -159,15 +145,11 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
                 </div>
               </div>
               <p className="text-center font-medium">{file.name}</p>
-              {blobUrl ? (
-                <audio src={blobUrl} controls className="w-full" onError={() => setLoadError(true)} />
-              ) : (
-                <p className="text-center text-muted-foreground text-sm">加载中...</p>
-              )}
+              <audio src={resolvedUrl} controls className="w-full" onError={() => setLoadError(true)} />
             </div>
           ) : isPdf ? (
             <iframe
-              src={`${previewUrl}?token=${encodeURIComponent(token)}`}
+              src={resolvedUrl}
               className="w-full h-full border-0"
               title={file.name}
               onError={() => setLoadError(true)}

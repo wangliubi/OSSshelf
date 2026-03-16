@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFileStore } from '@/stores/files';
 import { useAuthStore } from '@/stores/auth';
 import { filesApi, shareApi, bucketsApi, PROVIDER_META, type StorageBucket } from '@/services/api';
+import { presignUpload } from '@/services/presignUpload';
 import { useFolderUpload } from '@/hooks/useFolderUpload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -242,7 +243,14 @@ export default function Files() {
 
   const uploadMutation = useMutation({
     mutationFn: ({ file, parentId, key }: { file: File; parentId: string | null; key: string }) =>
-      filesApi.upload(file, parentId, (p) => setUploadProgresses((prev) => ({ ...prev, [key]: p }))),
+      presignUpload({
+        file,
+        parentId,
+        onProgress: (p) => setUploadProgresses((prev) => ({ ...prev, [key]: p })),
+        onFallback: () => {
+          // Silently fell back to proxy — no UX change needed
+        },
+      }),
     onSuccess: (_, { key }) => {
       queryClient.invalidateQueries({ queryKey: ['files', folderId] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
@@ -251,7 +259,7 @@ export default function Files() {
     },
     onError: (e: any, { key }) => {
       setUploadProgresses((p) => { const n = { ...p }; delete n[key]; return n; });
-      toast({ title: '上传失败', description: e.response?.data?.error?.message, variant: 'destructive' });
+      toast({ title: '上传失败', description: e?.message || e?.response?.data?.error?.message, variant: 'destructive' });
     },
   });
 
@@ -337,13 +345,32 @@ export default function Files() {
   // ── Handlers ─────────────────────────────────────────────────────
   const handleDownload = async (file: FileItem) => {
     try {
-      const res = await filesApi.download(file.id);
-      const url = window.URL.createObjectURL(res.data as Blob);
+      const { url, fileName } = await import('@/services/presignUpload').then(m =>
+        m.getPresignedDownloadUrl(file.id)
+      );
+      // Presigned URL or proxy URL — either can be used as <a href>
       const a = document.createElement('a');
-      a.href = url; a.download = file.name;
-      document.body.appendChild(a); a.click();
-      window.URL.revokeObjectURL(url); a.remove();
-    } catch { toast({ title: '下载失败', variant: 'destructive' }); }
+      a.href = url;
+      a.download = fileName || file.name;
+      // For presigned URLs (cross-origin), target=_blank avoids CORS on anchor click
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      // Last-resort: proxy download via blob
+      try {
+        const res = await filesApi.download(file.id);
+        const url = window.URL.createObjectURL(res.data as Blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = file.name;
+        document.body.appendChild(a); a.click();
+        window.URL.revokeObjectURL(url); a.remove();
+      } catch {
+        toast({ title: '下载失败', variant: 'destructive' });
+      }
+    }
   };
 
   const handleFileClick = (file: FileItem) => {

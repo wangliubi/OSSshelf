@@ -161,6 +161,267 @@ async function signRequest(opts: {
   return { url: opts.url, headers };
 }
 
+// ── Presigned URL (query-string auth) ────────────────────────────────────
+
+/**
+ * Generate a presigned URL for a PUT (upload) or GET (download/preview).
+ *
+ * The signature is embedded in query parameters — no Authorization header
+ * needed. The browser / client uploads or downloads directly.
+ *
+ * @param method  'PUT' | 'GET'
+ * @param config  Bucket config with decrypted credentials
+ * @param key     S3 object key
+ * @param expiresIn  Seconds until URL expires (default 3600 = 1h)
+ * @param contentType  Required for PUT presigns — tells S3 what Content-Type to expect
+ */
+export async function s3PresignUrl(
+  config: S3BucketConfig,
+  method: 'PUT' | 'GET',
+  key: string,
+  expiresIn = 3600,
+  contentType?: string,
+): Promise<string> {
+  const { url, host, canonicalUri } = buildObjectUrl(config, key);
+  const region = config.region || 'us-east-1';
+
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const dateStamp = amzDate.slice(0, 8);
+
+  const credScope = `${dateStamp}/${region}/s3/aws4_request`;
+  const credential = `${config.accessKeyId}/${credScope}`;
+
+  // Build canonical query string — alphabetical order required
+  const queryParams: Record<string, string> = {
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': credential,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': String(expiresIn),
+    'X-Amz-SignedHeaders': 'host',
+  };
+
+  // For PUT presigns, include Content-Type in signed headers when provided.
+  // However most S3 providers (and R2) do NOT enforce Content-Type in presign
+  // query-auth — we pass it as metadata only and sign only 'host' to keep
+  // client-side usage simple (no extra header on the actual PUT request).
+  // Tencent COS requires x-cos-security-token but we don't use STS here.
+
+  const sortedQuery = Object.keys(queryParams).sort()
+    .map((k) => `${k}=${encodeURIComponent(queryParams[k])}`).join('&');
+
+  const canonicalHeaders = `host:${host}\n`;
+  const signedHeadersStr = 'host';
+  const payloadHash = 'UNSIGNED-PAYLOAD';
+
+  const canonicalRequest = [
+    method,
+    canonicalUri,
+    sortedQuery,
+    canonicalHeaders,
+    signedHeadersStr,
+    payloadHash,
+  ].join('\n');
+
+  const canonicalHash = await sha256Hex(canonicalRequest);
+  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credScope, canonicalHash].join('\n');
+
+  const signingKey = await deriveSigningKey(config.secretAccessKey, dateStamp, region);
+  const sigBuf = await hmacSHA256(signingKey, stringToSign);
+  const signature = Array.from(new Uint8Array(sigBuf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  // Append signature to the URL
+  const fullQuery = `${sortedQuery}&X-Amz-Signature=${signature}`;
+
+  // Parse the base URL to properly append query
+  const urlObj = new URL(url);
+  return `${urlObj.origin}${urlObj.pathname}?${fullQuery}`;
+}
+
+// ── Multipart Upload ─────────────────────────────────────────────────────
+
+export interface MultipartPart {
+  partNumber: number;
+  etag: string;
+}
+
+/**
+ * Initiate a multipart upload. Returns the UploadId.
+ */
+export async function s3CreateMultipartUpload(
+  config: S3BucketConfig,
+  key: string,
+  contentType: string,
+): Promise<string> {
+  const { url, host, canonicalUri } = buildObjectUrl(config, key);
+  const region = config.region || 'us-east-1';
+  const queryString = 'uploads=';
+  const uploadUrl = `${url}?uploads`;
+  const payloadHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+  const signed = await signRequest({
+    method: 'POST',
+    url: uploadUrl,
+    host,
+    canonicalUri,
+    queryString,
+    payloadHash,
+    contentType,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    region,
+  });
+
+  const res = await fetch(signed.url, {
+    method: 'POST',
+    headers: signed.headers,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Multipart initiate 失败 (${res.status}): ${text.slice(0, 300)}`);
+  }
+
+  const xml = await res.text();
+  const match = xml.match(/<UploadId>([^<]+)<\/UploadId>/);
+  if (!match) throw new Error('Multipart initiate: 无法解析 UploadId');
+  return match[1];
+}
+
+/**
+ * Generate a presigned URL for uploading a single part.
+ */
+export async function s3PresignUploadPart(
+  config: S3BucketConfig,
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  expiresIn = 3600,
+): Promise<string> {
+  const { url: baseUrl, host, canonicalUri } = buildObjectUrl(config, key);
+  const region = config.region || 'us-east-1';
+
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const dateStamp = amzDate.slice(0, 8);
+
+  const credScope = `${dateStamp}/${region}/s3/aws4_request`;
+  const credential = `${config.accessKeyId}/${credScope}`;
+
+  const queryParams: Record<string, string> = {
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': credential,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': String(expiresIn),
+    'X-Amz-SignedHeaders': 'host',
+    'partNumber': String(partNumber),
+    'uploadId': uploadId,
+  };
+
+  const sortedQuery = Object.keys(queryParams).sort()
+    .map((k) => `${k}=${encodeURIComponent(queryParams[k])}`).join('&');
+
+  const canonicalRequest = [
+    'PUT',
+    canonicalUri,
+    sortedQuery,
+    `host:${host}\n`,
+    'host',
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+
+  const canonicalHash = await sha256Hex(canonicalRequest);
+  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credScope, canonicalHash].join('\n');
+
+  const signingKey = await deriveSigningKey(config.secretAccessKey, dateStamp, region);
+  const sigBuf = await hmacSHA256(signingKey, stringToSign);
+  const signature = Array.from(new Uint8Array(sigBuf))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  const urlObj = new URL(baseUrl);
+  return `${urlObj.origin}${urlObj.pathname}?${sortedQuery}&X-Amz-Signature=${signature}`;
+}
+
+/**
+ * Complete a multipart upload by sending the parts manifest.
+ */
+export async function s3CompleteMultipartUpload(
+  config: S3BucketConfig,
+  key: string,
+  uploadId: string,
+  parts: MultipartPart[],
+): Promise<void> {
+  const { url: baseUrl, host, canonicalUri } = buildObjectUrl(config, key);
+  const region = config.region || 'us-east-1';
+
+  const partsXml = parts
+    .sort((a, b) => a.partNumber - b.partNumber)
+    .map((p) => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>${p.etag}</ETag></Part>`)
+    .join('');
+  const body = `<CompleteMultipartUpload>${partsXml}</CompleteMultipartUpload>`;
+
+  const encodedUploadId = encodeURIComponent(uploadId);
+  const queryString = `uploadId=${encodedUploadId}`;
+  const completeUrl = `${baseUrl}?${queryString}`;
+
+  const payloadHash = await sha256Hex(body);
+  const signed = await signRequest({
+    method: 'POST',
+    url: completeUrl,
+    host,
+    canonicalUri,
+    queryString,
+    payloadHash,
+    contentType: 'application/xml',
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    region,
+  });
+
+  const res = await fetch(signed.url, {
+    method: 'POST',
+    headers: { ...signed.headers, 'Content-Type': 'application/xml' },
+    body,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Multipart complete 失败 (${res.status}): ${text.slice(0, 300)}`);
+  }
+}
+
+/**
+ * Abort a multipart upload (cleanup on failure).
+ */
+export async function s3AbortMultipartUpload(
+  config: S3BucketConfig,
+  key: string,
+  uploadId: string,
+): Promise<void> {
+  const { url: baseUrl, host, canonicalUri } = buildObjectUrl(config, key);
+  const region = config.region || 'us-east-1';
+
+  const encodedUploadId = encodeURIComponent(uploadId);
+  const queryString = `uploadId=${encodedUploadId}`;
+  const abortUrl = `${baseUrl}?${queryString}`;
+
+  const payloadHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const signed = await signRequest({
+    method: 'DELETE',
+    url: abortUrl,
+    host,
+    canonicalUri,
+    queryString,
+    payloadHash,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    region,
+  });
+
+  await fetch(signed.url, { method: 'DELETE', headers: signed.headers });
+  // Ignore errors — abort is best-effort
+}
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 /**
