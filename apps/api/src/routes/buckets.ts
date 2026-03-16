@@ -99,7 +99,7 @@ app.post('/', async (c) => {
   const data = result.data;
   const db = getDb(c.env.DB);
   const now = new Date().toISOString();
-  const encKey = c.env.JWT_SECRET || 'r2shelf-default-key';
+  const encKey = c.env.JWT_SECRET || 'ossshelf-default-key';
 
   // If this is set as default, unset existing defaults
   if (data.isDefault) {
@@ -185,7 +185,7 @@ app.put('/:id', async (c) => {
 
   const data = result.data;
   const now = new Date().toISOString();
-  const encKey = c.env.JWT_SECRET || 'r2shelf-default-key';
+  const encKey = c.env.JWT_SECRET || 'ossshelf-default-key';
 
   // Handle default switch
   if (data.isDefault && !bucket.isDefault) {
@@ -267,7 +267,7 @@ app.post('/:id/test', async (c) => {
   const userId = c.get('userId')!;
   const id = c.req.param('id');
   const db = getDb(c.env.DB);
-  const encKey = c.env.JWT_SECRET || 'r2shelf-default-key';
+  const encKey = c.env.JWT_SECRET || 'ossshelf-default-key';
 
   const bucket = await db.select().from(storageBuckets)
     .where(and(eq(storageBuckets.id, id), eq(storageBuckets.userId, userId)))

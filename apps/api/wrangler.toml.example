@@ -1,11 +1,11 @@
-name = "r2shelf-api"
+name = "ossshelf-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "r2shelf-db"
+database_name = "ossshelf-db"
 database_id = "YOUR_D1_DATABASE_ID"
 
 # ── R2 direct binding (OPTIONAL / LEGACY) ────────────────────────────────
@@ -20,7 +20,7 @@ database_id = "YOUR_D1_DATABASE_ID"
 #
 # [[r2_buckets]]
 # binding = "FILES"
-# bucket_name = "r2shelf-files"
+# bucket_name = "ossshelf-files"
 
 [[kv_namespaces]]
 binding = "KV"

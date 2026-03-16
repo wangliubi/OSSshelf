@@ -44,7 +44,7 @@ app.post('/upload', async (c) => {
   if (uploadFile.size > MAX_FILE_SIZE) return c.json({ success: false, error: { code: ERROR_CODES.FILE_TOO_LARGE, message: `文件大小超过限制（最大 ${MAX_FILE_SIZE / 1024 / 1024 / 1024}GB）` } }, 400);
 
   const db = getDb(c.env.DB);
-  const encKey = c.env.JWT_SECRET || 'r2shelf-key';
+  const encKey = c.env.JWT_SECRET || 'ossshelf-key';
   const bucketConfig = await resolveBucketConfig(db, userId, encKey, requestedBucketId, parentId);
 
   const user = await db.select().from(users).where(eq(users.id, userId)).get();
@@ -141,7 +141,7 @@ app.post('/trash/:id/restore', async (c) => {
 // ── Trash: permanent delete ────────────────────────────────────────────────
 app.delete('/trash/:id', async (c) => {
   const userId = c.get('userId')!; const fileId = c.req.param('id');
-  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'r2shelf-key';
+  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'ossshelf-key';
   const file = await db.select().from(files).where(and(eq(files.id, fileId), eq(files.userId, userId), isNotNull(files.deletedAt))).get();
   if (!file) return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
   if (!file.isFolder) await deleteFileFromStorage(c.env, db, userId, encKey, file);
@@ -152,7 +152,7 @@ app.delete('/trash/:id', async (c) => {
 // ── Trash: empty ───────────────────────────────────────────────────────────
 app.delete('/trash', async (c) => {
   const userId = c.get('userId')!;
-  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'r2shelf-key';
+  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'ossshelf-key';
   const trashed = await db.select().from(files).where(and(eq(files.userId, userId), isNotNull(files.deletedAt))).all();
   let freedBytes = 0;
   for (const file of trashed) {
@@ -175,7 +175,7 @@ app.post('/', async (c) => {
 
   const { name, parentId, bucketId: requestedBucketId } = result.data;
   const db = getDb(c.env.DB);
-  const encKey = c.env.JWT_SECRET || 'r2shelf-key';
+  const encKey = c.env.JWT_SECRET || 'ossshelf-key';
 
   const existing = await db.select().from(files).where(and(eq(files.userId, userId), eq(files.name, name), parentId ? eq(files.parentId, parentId) : isNull(files.parentId), eq(files.isFolder, true), isNull(files.deletedAt))).get();
   if (existing) return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '同名文件夹已存在' } }, 400);
@@ -275,7 +275,7 @@ async function softDeleteFolder(db: ReturnType<typeof getDb>, folderId: string, 
 // ── Download ───────────────────────────────────────────────────────────────
 app.get('/:id/download', async (c) => {
   const userId = c.get('userId')!; const fileId = c.req.param('id');
-  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'r2shelf-key';
+  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'ossshelf-key';
   const file = await db.select().from(files).where(and(eq(files.id, fileId), eq(files.userId, userId), isNull(files.deletedAt))).get();
   if (!file) return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
   if (file.isFolder) return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '无法下载文件夹' } }, 400);
@@ -297,7 +297,7 @@ app.get('/:id/preview', async (c) => {
     if (!userId) return c.json({ success: false, error: { code: ERROR_CODES.UNAUTHORIZED, message: '未授权' } }, 401);
   }
   const fileId = c.req.param('id');
-  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'r2shelf-key';
+  const db = getDb(c.env.DB); const encKey = c.env.JWT_SECRET || 'ossshelf-key';
   const file = await db.select().from(files).where(and(eq(files.id, fileId), eq(files.userId, userId), isNull(files.deletedAt))).get();
   if (!file) return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
   if (file.isFolder) return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '无法预览文件夹' } }, 400);

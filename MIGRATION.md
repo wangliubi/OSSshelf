@@ -15,10 +15,10 @@ Files are routed to the correct bucket automatically based on:
 
 ```bash
 # Apply all pending migrations
-wrangler d1 migrations apply r2shelf-db
+wrangler d1 migrations apply ossshelf-db
 
 # Or for production
-wrangler d1 migrations apply r2shelf-db --env production
+wrangler d1 migrations apply ossshelf-db --env production
 ```
 
 Migrations applied:

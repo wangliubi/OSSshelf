@@ -201,7 +201,7 @@ async function handleGet(c: AppContext, userId: string, path: string, headOnly: 
   if (!file) return new Response('Not Found', { status: 404 });
   if (file.isFolder) return new Response('Is a collection', { status: 400 });
 
-  const encKeyG = c.env.JWT_SECRET || 'r2shelf-key';
+  const encKeyG = c.env.JWT_SECRET || 'ossshelf-key';
   const bucketCfgG = await resolveBucketConfig(db, userId, encKeyG, file.bucketId, file.parentId);
   const hdrs = { 'Content-Type': file.mimeType || 'application/octet-stream', 'Content-Length': file.size.toString() };
   if (bucketCfgG) {
@@ -254,7 +254,7 @@ async function handlePut(c: AppContext, userId: string, path: string) {
   const mimeType = c.req.header('Content-Type') || 'application/octet-stream';
   const r2Key = `files/${userId}/${fileId}/${fileName}`;
 
-  const encKeyP = c.env.JWT_SECRET || 'r2shelf-key';
+  const encKeyP = c.env.JWT_SECRET || 'ossshelf-key';
   const bucketCfgP = await resolveBucketConfig(db, userId, encKeyP, null, parentId);
   if (bucketCfgP) {
     await s3Put(bucketCfgP, r2Key, body, mimeType, { userId, originalName: fileName });
@@ -340,7 +340,7 @@ async function handleDelete(c: AppContext, userId: string, path: string) {
   if (!file) return new Response('Not Found', { status: 404 });
 
   if (!file.isFolder) {
-    const encKeyD = c.env.JWT_SECRET || 'r2shelf-key';
+    const encKeyD = c.env.JWT_SECRET || 'ossshelf-key';
     const bucketCfgD = await resolveBucketConfig(db, userId, encKeyD, file.bucketId, file.parentId);
     if (bucketCfgD) {
       try { await s3Delete(bucketCfgD, file.r2Key); } catch(e) { console.error('webdav delete s3 error:', e); }
@@ -416,7 +416,7 @@ async function handleCopy(c: AppContext, userId: string, path: string) {
   const now = new Date().toISOString();
 
   if (!file.isFolder) {
-    const encKeyC = c.env.JWT_SECRET || 'r2shelf-key';
+    const encKeyC = c.env.JWT_SECRET || 'ossshelf-key';
     const bucketCfgC = await resolveBucketConfig(db, userId, encKeyC, file.bucketId, file.parentId);
     const newR2Key = `files/${userId}/${newId}/${newName}`;
     if (bucketCfgC) {

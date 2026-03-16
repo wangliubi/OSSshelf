@@ -52,7 +52,7 @@ export default function Register() {
   
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="text-center">
         <CardTitle>注册</CardTitle>
         <CardDescription>创建一个新账号开始使用</CardDescription>
       </CardHeader>

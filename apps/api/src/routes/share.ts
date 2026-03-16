@@ -154,7 +154,7 @@ app.get('/:id/preview', async (c) => {
   }
 
   const db2 = getDb(c.env.DB);
-  const encKey2 = c.env.JWT_SECRET || 'r2shelf-key';
+  const encKey2 = c.env.JWT_SECRET || 'ossshelf-key';
   const bucketCfg2 = await resolveBucketConfig(db2, file.userId, encKey2, file.bucketId, file.parentId);
   if (bucketCfg2) {
     const s3Res = await s3Get(bucketCfg2, file.r2Key);
@@ -189,7 +189,7 @@ app.get('/:id/download', async (c) => {
 
   await db.update(shares).set({ downloadCount: share.downloadCount + 1 }).where(eq(shares.id, shareId));
 
-  const encKey = c.env.JWT_SECRET || 'r2shelf-key';
+  const encKey = c.env.JWT_SECRET || 'ossshelf-key';
   const bucketCfg = await resolveBucketConfig(db, file.userId, encKey, file.bucketId, file.parentId);
   const dlHeaders = { 'Content-Type': file.mimeType || 'application/octet-stream', 'Content-Disposition': `attachment; filename="${encodeURIComponent(file.name)}"`, 'Content-Length': file.size.toString() };
   if (bucketCfg) { const s3Res = await s3Get(bucketCfg, file.r2Key); return new Response(s3Res.body, { headers: dlHeaders }); }

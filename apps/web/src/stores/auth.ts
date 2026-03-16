@@ -35,7 +35,7 @@ export const useAuthStore = create<AuthState>()(
         })),
     }),
     {
-      name: 'r2shelf-auth',
+      name: 'ossshelf-auth',
     }
   )
 );

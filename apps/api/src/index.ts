@@ -15,15 +15,20 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', logger());
 app.use('*', prettyJSON());
+// IMPORTANT: cors must be registered BEFORE secureHeaders.
+// secureHeaders injects Cross-Origin-Resource-Policy: same-origin by default,
+// which overrides CORS and causes preflight failures. We disable it explicitly.
 app.use('*', cors({
-  origin: '*',
+  origin: ['https://ossshelf.neutronx.uk'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PROPFIND', 'MKCOL', 'COPY', 'MOVE', 'HEAD'],
   allowHeaders: ['Content-Type', 'Authorization', 'Depth', 'Destination', 'X-Requested-With'],
   exposeHeaders: ['Content-Length', 'Content-Range'],
   maxAge: 86400,
   credentials: true,
 }));
-app.use('*', secureHeaders());
+app.use('*', secureHeaders({
+  crossOriginResourcePolicy: false, // must be disabled to allow cross-origin requests
+}));
 
 app.use('*', errorHandler);
 

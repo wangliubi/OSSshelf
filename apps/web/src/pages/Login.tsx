@@ -40,7 +40,7 @@ export default function Login() {
   
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="text-center">
         <CardTitle>登录</CardTitle>
         <CardDescription>输入您的邮箱和密码登录系统</CardDescription>
       </CardHeader>
