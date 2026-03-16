@@ -37,6 +37,7 @@ import {
   Search, X, Pencil, Eye, CheckSquare, Square, SortAsc, SortDesc,
   Image as ImageIcon, FolderInput, Database, MoreVertical,
   Copy, Scissors, Clipboard, RefreshCw, Columns, LayoutGrid,
+  CheckCircle2,
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import type { FileItem } from '@osshelf/shared';
@@ -373,7 +374,7 @@ export default function Files() {
 
   const handleBatchDelete = () => {
     if (!selectedFiles.length) return;
-    if (!confirm(`确定将选中的 ${selectedFiles.length} 个文件移入回收站？`)) return;
+    if (!confirm(`确定将选中的 ${selectedFiles.length} 个项目移入回收站？`)) return;
     selectedFiles.forEach((id) => deleteMutation.mutate(id));
   };
 
@@ -472,6 +473,13 @@ export default function Files() {
       },
       { id: 'divider1', label: '', divider: true },
       {
+        id: 'selectAll',
+        label: '全选',
+        icon: <CheckSquare className="h-4 w-4" />,
+        shortcut: 'Ctrl+A',
+        action: () => selectAll(displayFiles),
+      },
+      {
         id: 'upload',
         label: '上传文件',
         icon: <Upload className="h-4 w-4" />,
@@ -503,7 +511,7 @@ export default function Files() {
     }
 
     return items;
-  }, [refetch, clipboard, toast]);
+  }, [refetch, clipboard, toast, selectAll, displayFiles]);
 
   const handleContextMenu = (e: React.MouseEvent, file?: FileItem) => {
     if (file) {
@@ -630,6 +638,10 @@ export default function Files() {
             )}
           </div>
           
+          <Button variant="outline" size="sm" onClick={() => selectAll(displayFiles)} disabled={displayFiles.length === 0}>
+            <CheckSquare className="h-4 w-4 mr-1.5" />全选
+          </Button>
+          
           <Button variant="outline" size="sm" onClick={() => setShowNewFolderDialog(true)} className="hidden sm:flex">
             <FolderPlus className="h-4 w-4 mr-1.5" />新建
           </Button>
@@ -655,11 +667,11 @@ export default function Files() {
 
       {selectedFiles.length > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/10 border border-primary/20 rounded-lg text-sm">
-          <CheckSquare className="h-4 w-4 text-primary" />
+          <CheckCircle2 className="h-4 w-4 text-primary" />
           <span className="font-medium">已选中 {selectedFiles.length} 个</span>
           <div className="flex-1" />
           <Button variant="outline" size="sm" onClick={clearSelection}>
-            <Square className="h-3.5 w-3.5 mr-1" />取消
+            <X className="h-3.5 w-3.5 mr-1" />取消
           </Button>
           <Button variant="destructive" size="sm" onClick={handleBatchDelete} disabled={deleteMutation.isPending}>
             <Trash2 className="h-3.5 w-3.5 mr-1" />批量删除
@@ -830,23 +842,26 @@ interface ItemProps {
 
 function ListItem({ file, isSelected, onClick, onToggleSelect, onDownload, onShare, onDelete, onRename, onPreview, onMove, onContextMenu }: ItemProps) {
   const canPreview = !file.isFolder && isPreviewable(file.mimeType);
+  const { isMobile } = useResponsive();
+  
   return (
     <div
       className={cn('flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors cursor-pointer group', isSelected && 'bg-primary/5')}
       onClick={() => onClick(file)}
       onContextMenu={(e) => onContextMenu(e, file)}
     >
-      {!file.isFolder
-        ? <button className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); onToggleSelect(file.id, file); }}>
-            {isSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
-          </button>
-        : <div className="w-4 flex-shrink-0" />}
+      <button 
+        className="flex-shrink-0 transition-opacity" 
+        onClick={(e) => { e.stopPropagation(); onToggleSelect(file.id, file); }}
+      >
+        {isSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
+      </button>
       <div className="flex-shrink-0"><FileIcon mimeType={file.mimeType} isFolder={file.isFolder} size="md" /></div>
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate text-sm">{file.name}</p>
         <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
           {file.isFolder ? '文件夹' : formatBytes(file.size)} · {formatDate(file.updatedAt)}
-          {file.mimeType && !file.isFolder && <span className="opacity-40">{file.mimeType}</span>}
+          {file.mimeType && !file.isFolder && <span className="opacity-40 hidden sm:inline">{file.mimeType}</span>}
           {(file as any).bucket && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-muted border">
               <Database className="h-2.5 w-2.5" />
@@ -855,7 +870,10 @@ function ListItem({ file, isSelected, onClick, onToggleSelect, onDownload, onSha
           )}
         </p>
       </div>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+      <div className={cn(
+        "flex items-center gap-0.5 transition-opacity",
+        isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+      )} onClick={(e) => e.stopPropagation()}>
         {canPreview && <ActionBtn title="预览" onClick={() => onPreview(file)}><Eye className="h-3.5 w-3.5" /></ActionBtn>}
         <ActionBtn title="重命名" onClick={() => onRename(file)}><Pencil className="h-3.5 w-3.5" /></ActionBtn>
         <ActionBtn title="移动到…" onClick={() => onMove(file)}><FolderInput className="h-3.5 w-3.5" /></ActionBtn>
@@ -871,6 +889,8 @@ function GridItem({ file, isSelected, onClick, onToggleSelect, onDownload, onSha
   const bg = getCategoryBg(getFileCategory(file.mimeType, file.isFolder));
   const canPreview = !file.isFolder && isPreviewable(file.mimeType);
   const isImage = file.mimeType?.startsWith('image/');
+  const { isMobile } = useResponsive();
+  
   return (
     <div
       className={cn('relative bg-card border rounded-xl overflow-hidden cursor-pointer group transition-all hover:shadow-md hover:-translate-y-0.5', isSelected && 'ring-2 ring-primary')}
@@ -879,13 +899,17 @@ function GridItem({ file, isSelected, onClick, onToggleSelect, onDownload, onSha
     >
       <div className={cn('flex items-center justify-center h-28 relative', !isImage && bg)}>
         {isImage ? <img src={filesApi.previewUrl(file.id)} alt={file.name} className="w-full h-full object-cover" onError={(e) => { (e.target as any).style.display = 'none'; }} /> : <FileIcon mimeType={file.mimeType} isFolder={file.isFolder} size="lg" />}
-        {!file.isFolder && (
-          <button className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => { e.stopPropagation(); onToggleSelect(file.id, file); }}>
-            <div className={cn('rounded w-5 h-5 flex items-center justify-center', isSelected ? 'bg-primary text-primary-foreground' : 'bg-black/40 text-white')}>
-              {isSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
-            </div>
-          </button>
-        )}
+        <button 
+          className={cn(
+            "absolute top-2 left-2 transition-opacity z-10",
+            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )} 
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(file.id, file); }}
+        >
+          <div className={cn('rounded w-5 h-5 flex items-center justify-center', isSelected ? 'bg-primary text-primary-foreground' : 'bg-black/40 text-white')}>
+            {isSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+          </div>
+        </button>
       </div>
       <div className="px-3 py-2 border-t">
         <p className="text-xs font-medium truncate">{file.name}</p>
@@ -899,7 +923,10 @@ function GridItem({ file, isSelected, onClick, onToggleSelect, onDownload, onSha
           )}
         </div>
       </div>
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 rounded-xl" onClick={(e) => e.stopPropagation()}>
+      <div className={cn(
+        "absolute inset-0 bg-black/50 transition-opacity flex items-center justify-center gap-1.5 rounded-xl",
+        isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+      )} onClick={(e) => e.stopPropagation()}>
         {canPreview && <ActionBtn title="预览" onClick={() => onPreview(file)} light><Eye className="h-3.5 w-3.5" /></ActionBtn>}
         <ActionBtn title="重命名" onClick={() => onRename(file)} light><Pencil className="h-3.5 w-3.5" /></ActionBtn>
         <ActionBtn title="移动" onClick={() => onMove(file)} light><FolderInput className="h-3.5 w-3.5" /></ActionBtn>
@@ -914,6 +941,7 @@ function GridItem({ file, isSelected, onClick, onToggleSelect, onDownload, onSha
 function MasonryItem({ file, isSelected, onClick, onToggleSelect, onDownload, onShare, onDelete, onRename, onPreview, onMove, onContextMenu }: ItemProps) {
   const bg = getCategoryBg(getFileCategory(file.mimeType, file.isFolder));
   const isImage = file.mimeType?.startsWith('image/');
+  const { isMobile } = useResponsive();
   
   return (
     <div
@@ -929,13 +957,17 @@ function MasonryItem({ file, isSelected, onClick, onToggleSelect, onDownload, on
             <FileIcon mimeType={file.mimeType} isFolder={file.isFolder} size="lg" />
           </div>
         )}
-        {!file.isFolder && (
-          <button className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => { e.stopPropagation(); onToggleSelect(file.id, file); }}>
-            <div className={cn('rounded w-5 h-5 flex items-center justify-center', isSelected ? 'bg-primary text-primary-foreground' : 'bg-black/40 text-white')}>
-              {isSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
-            </div>
-          </button>
-        )}
+        <button 
+          className={cn(
+            "absolute top-2 left-2 transition-opacity z-10",
+            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )} 
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(file.id, file); }}
+        >
+          <div className={cn('rounded w-5 h-5 flex items-center justify-center', isSelected ? 'bg-primary text-primary-foreground' : 'bg-black/40 text-white')}>
+            {isSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+          </div>
+        </button>
       </div>
       <div className="px-2 py-1.5 border-t">
         <p className="text-xs font-medium truncate">{file.name}</p>
@@ -946,6 +978,8 @@ function MasonryItem({ file, isSelected, onClick, onToggleSelect, onDownload, on
 }
 
 function GalleryItem({ file, onClick, onDelete, onContextMenu }: { file: FileItem; onClick: () => void; onDelete: () => void; onContextMenu: (e: React.MouseEvent) => void }) {
+  const { isMobile } = useResponsive();
+  
   return (
     <div
       className="masonry-item relative rounded-lg overflow-hidden group cursor-pointer"
@@ -953,7 +987,10 @@ function GalleryItem({ file, onClick, onDelete, onContextMenu }: { file: FileIte
       onContextMenu={onContextMenu}
     >
       <img src={filesApi.previewUrl(file.id)} alt={file.name} className="w-full block object-cover" loading="lazy" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
+      <div className={cn(
+        "absolute inset-0 bg-black/40 transition-opacity flex flex-col justify-end p-2",
+        isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+      )}>
         <p className="text-white text-xs font-medium truncate">{file.name}</p>
         <div className="flex gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
           <ActionBtn title="删除" onClick={onDelete} danger light><Trash2 className="h-3 w-3" /></ActionBtn>

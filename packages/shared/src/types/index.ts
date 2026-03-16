@@ -76,6 +76,8 @@ export interface WebDAVSession {
 export interface AuditLog {
   id: string;
   userId: string | null;
+  userName?: string | null;
+  userEmail?: string | null;
   action: AuditAction;
   resourceType: string;
   resourceId: string | null;
@@ -124,7 +126,7 @@ export interface UserDevice {
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   ipAddress: string | null;
   userAgent: string | null;
-  lastActive: string;
+  lastUsedAt: string;
   createdAt: string;
 }
 
@@ -139,8 +141,9 @@ export interface UploadTask {
   r2Key: string;
   uploadId: string;
   totalParts: number;
-  uploadedParts: number[];
+  uploadedParts: number;
   status: UploadTaskStatus;
+  errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -154,6 +157,8 @@ export interface DownloadTask {
   url: string;
   fileName: string | null;
   fileSize: number | null;
+  totalSize: number | null;
+  downloadedSize: number | null;
   parentId: string | null;
   bucketId: string | null;
   status: DownloadTaskStatus;

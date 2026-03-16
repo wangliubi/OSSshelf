@@ -15,7 +15,7 @@ import {
   ToggleLeft, ToggleRight, Mail, Ban, Clock,
 } from 'lucide-react';
 
-type TabKey = 'users' | 'registration' | 'stats';
+type TabKey = 'users' | 'registration' | 'stats' | 'audit';
 
 export default function Admin() {
   const { user: currentUser } = useAuthStore();
@@ -38,6 +38,7 @@ export default function Admin() {
   const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
     { key: 'users', label: '用户管理', icon: Users },
     { key: 'registration', label: '注册控制', icon: Key },
+    { key: 'audit', label: '审计日志', icon: FileText },
     { key: 'stats', label: '系统统计', icon: Server },
   ];
 
@@ -71,6 +72,7 @@ export default function Admin() {
 
       {activeTab === 'users' && <UsersTab />}
       {activeTab === 'registration' && <RegistrationTab />}
+      {activeTab === 'audit' && <AuditLogTab />}
       {activeTab === 'stats' && <StatsTab />}
     </div>
   );
@@ -527,5 +529,116 @@ function StatsTab() {
         </Card>
       )}
     </div>
+  );
+}
+
+function AuditLogTab() {
+  const [page, setPage] = useState(1);
+  const [actionFilter, setActionFilter] = useState<string>('');
+  const limit = 20;
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'audit-logs', page, actionFilter],
+    queryFn: () => adminApi.auditLogs({ page, limit, action: actionFilter || undefined }).then((r) => r.data.data!),
+  });
+
+  const logs = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / limit);
+
+  const ACTION_LABELS: Record<string, { label: string; color: string }> = {
+    login: { label: '登录', color: 'bg-blue-500/10 text-blue-500' },
+    logout: { label: '登出', color: 'bg-gray-500/10 text-gray-500' },
+    file_upload: { label: '上传', color: 'bg-emerald-500/10 text-emerald-500' },
+    file_download: { label: '下载', color: 'bg-cyan-500/10 text-cyan-500' },
+    file_delete: { label: '删除', color: 'bg-red-500/10 text-red-500' },
+    file_share: { label: '分享', color: 'bg-purple-500/10 text-purple-500' },
+    user_create: { label: '创建用户', color: 'bg-amber-500/10 text-amber-500' },
+    user_update: { label: '更新用户', color: 'bg-indigo-500/10 text-indigo-500' },
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+              <FileText className="h-4 w-4 text-indigo-500" />
+            </div>
+            <div>
+              <CardTitle className="text-base">审计日志</CardTitle>
+              <CardDescription>系统操作记录</CardDescription>
+            </div>
+          </div>
+          <select
+            value={actionFilter}
+            onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
+            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+          >
+            <option value="">全部操作</option>
+            <option value="login">登录</option>
+            <option value="logout">登出</option>
+            <option value="file_upload">文件上传</option>
+            <option value="file_download">文件下载</option>
+            <option value="file_delete">文件删除</option>
+            <option value="file_share">文件分享</option>
+          </select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">暂无审计日志</div>
+        ) : (
+          <div className="space-y-2">
+            {logs.map((log) => {
+              const actionInfo = ACTION_LABELS[log.action] || { label: log.action, color: 'bg-muted text-muted-foreground' };
+              return (
+                <div key={log.id} className="flex items-center gap-4 p-3 rounded-lg border bg-muted/30">
+                  <div className={cn('px-2 py-1 rounded text-xs font-medium', actionInfo.color)}>
+                    {actionInfo.label}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{log.details || log.action}</p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                      <span>{log.userName || log.userEmail}</span>
+                      {log.ipAddress && <span>· {log.ipAddress}</span>}
+                      <span>· {formatDate(log.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              上一页
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              下一页
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

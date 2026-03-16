@@ -6,12 +6,15 @@
  * - 底部导航栏
  * - 快捷操作按钮
  * - 当前页面高亮
+ * - 退出登录功能
  */
 
 import { NavLink, useLocation } from 'react-router-dom';
+import { useAuthStore } from '@/stores/auth';
 import {
   LayoutDashboard, FolderOpen, Share2, Settings,
   Upload, Plus, Menu, X, Trash2, Database,
+  LogOut, User,
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useFileStore } from '@/stores/files';
@@ -24,7 +27,6 @@ const NAV_ITEMS = [
   { path: '/files', label: '文件', icon: FolderOpen, exact: false },
   { path: '/shares', label: '分享', icon: Share2, exact: false },
   { path: '/buckets', label: '存储桶', icon: Database, exact: false },
-  { path: '/settings', label: '设置', icon: Settings, exact: false },
 ];
 
 interface MobileBottomNavProps {
@@ -36,6 +38,7 @@ export function MobileBottomNav({ onUpload, onNewFolder }: MobileBottomNavProps)
   const location = useLocation();
   const [showQuickActions, setShowQuickActions] = useState(false);
   const { selectedFiles } = useFileStore();
+  const { user, logout } = useAuthStore();
 
   const { data: trashItems = [] } = useQuery({
     queryKey: ['trash'],
@@ -53,7 +56,7 @@ export function MobileBottomNav({ onUpload, onNewFolder }: MobileBottomNavProps)
     <>
       <nav className="mobile-nav lg:hidden">
         <div className="flex items-center justify-around h-14">
-          {NAV_ITEMS.slice(0, 4).map((item) => {
+          {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = isActive(item);
             const badge = item.path === '/files' && selectedFiles.length > 0 
@@ -109,57 +112,79 @@ export function MobileBottomNav({ onUpload, onNewFolder }: MobileBottomNavProps)
               </button>
             </div>
 
-            <div className="p-4 grid grid-cols-4 gap-4">
-              {isInFiles && (
-                <>
-                  <QuickActionButton
-                    icon={Upload}
-                    label="上传"
-                    onClick={() => {
-                      setShowQuickActions(false);
-                      onUpload?.();
-                    }}
-                  />
-                  <QuickActionButton
-                    icon={Plus}
-                    label="新建文件夹"
-                    onClick={() => {
-                      setShowQuickActions(false);
-                      onNewFolder?.();
-                    }}
-                  />
-                </>
-              )}
-              
-              <NavLink
-                to="/trash"
-                onClick={() => setShowQuickActions(false)}
-                className="flex flex-col items-center gap-1"
-              >
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center relative">
-                  <Trash2 className="h-5 w-5 text-muted-foreground" />
-                  {trashCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-medium bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
-                      {trashCount > 99 ? '99+' : trashCount}
-                    </span>
-                  )}
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-muted/50">
+                <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold">
+                  {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
                 </div>
-                <span className="text-xs text-muted-foreground">回收站</span>
-              </NavLink>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{user?.name || user?.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                </div>
+              </div>
 
-              <NavLink
-                to="/settings"
-                onClick={() => setShowQuickActions(false)}
-                className="flex flex-col items-center gap-1"
-              >
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                  <Settings className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <span className="text-xs text-muted-foreground">设置</span>
-              </NavLink>
+              <div className="grid grid-cols-4 gap-4">
+                {isInFiles && (
+                  <>
+                    <QuickActionButton
+                      icon={Upload}
+                      label="上传"
+                      onClick={() => {
+                        setShowQuickActions(false);
+                        onUpload?.();
+                      }}
+                    />
+                    <QuickActionButton
+                      icon={Plus}
+                      label="新建文件夹"
+                      onClick={() => {
+                        setShowQuickActions(false);
+                        onNewFolder?.();
+                      }}
+                    />
+                  </>
+                )}
+                
+                <NavLink
+                  to="/trash"
+                  onClick={() => setShowQuickActions(false)}
+                  className="flex flex-col items-center gap-1"
+                >
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center relative">
+                    <Trash2 className="h-5 w-5 text-muted-foreground" />
+                    {trashCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-medium bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
+                        {trashCount > 99 ? '99+' : trashCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground">回收站</span>
+                </NavLink>
+
+                <NavLink
+                  to="/settings"
+                  onClick={() => setShowQuickActions(false)}
+                  className="flex flex-col items-center gap-1"
+                >
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                    <Settings className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">设置</span>
+                </NavLink>
+              </div>
             </div>
 
-            <div className="p-4 pt-0">
+            <div className="p-4 pt-0 space-y-2">
+              <button
+                onClick={() => {
+                  setShowQuickActions(false);
+                  logout();
+                }}
+                className="w-full py-3 text-center text-sm text-red-500 bg-red-500/10 rounded-lg flex items-center justify-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                退出登录
+              </button>
               <button
                 onClick={() => setShowQuickActions(false)}
                 className="w-full py-3 text-center text-sm text-muted-foreground bg-muted rounded-lg"

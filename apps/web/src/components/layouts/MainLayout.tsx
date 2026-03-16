@@ -3,7 +3,7 @@
  * 主布局组件
  * 
  * 功能:
- * - 响应式侧边栏
+ * - 响应式侧边栏（仅桌面端）
  * - 移动端底部导航
  * - PWA 安装提示
  * - 快捷键支持
@@ -58,7 +58,7 @@ export default function MainLayout() {
   });
   const trashCount = (trashItems as any[]).length;
 
-  const { selectedFiles, canGoBack, canGoForward, goBack, goForward } = useFileStore();
+  const { canGoBack, canGoForward, goBack, goForward } = useFileStore();
 
   const isActive = (item: typeof navItems[0]) =>
     item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path);
@@ -105,6 +105,7 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* 移动端顶部栏 - 仅显示标题和导航按钮 */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between safe-top">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
@@ -146,26 +147,21 @@ export default function MainLayout() {
               </Button>
             </>
           )}
-          
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
         </div>
       </div>
 
+      {/* 桌面端侧边栏 */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 bg-card border-r flex flex-col transform transition-all duration-200 ease-in-out',
-          'lg:translate-x-0',
-          sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full',
-          isCollapsed && !sidebarOpen ? 'lg:w-16' : 'lg:w-64',
-          isHovering && isCollapsed && 'lg:w-64'
+          'hidden lg:flex fixed inset-y-0 left-0 z-40 bg-card border-r flex-col transform transition-all duration-200 ease-in-out',
+          isCollapsed ? 'w-16' : 'w-64',
+          isHovering && isCollapsed && 'w-64'
         )}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
         <div className={cn(
-          'p-5 border-b hidden lg:flex items-center gap-2.5 flex-shrink-0',
+          'p-5 border-b flex items-center gap-2.5 flex-shrink-0',
           (isCollapsed && !isHovering) && 'justify-center px-3'
         )}>
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
@@ -180,7 +176,7 @@ export default function MainLayout() {
         </div>
 
         <nav className={cn(
-          'flex-1 p-3 space-y-0.5 mt-16 lg:mt-0 overflow-y-auto',
+          'flex-1 p-3 space-y-0.5 overflow-y-auto',
           (isCollapsed && !isHovering) && 'px-2'
         )}>
           {navItems.map((item) => {
@@ -193,7 +189,6 @@ export default function MainLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={() => setSidebarOpen(false)}
                 className={cn(
                   'flex items-center gap-3 rounded-lg transition-colors text-sm',
                   showLabel ? 'px-3 py-2.5' : 'px-2 py-2.5 justify-center',
@@ -277,10 +272,6 @@ export default function MainLayout() {
           <ChevronLeft className={cn('h-3 w-3 transition-transform', isCollapsed && 'rotate-180')} />
         </button>
       </aside>
-
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
 
       <main
         className={cn(

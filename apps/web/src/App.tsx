@@ -12,6 +12,8 @@ import Trash from './pages/Trash';
 import SharePage from './pages/SharePage';
 import Buckets from './pages/Buckets';
 import Admin from './pages/Admin';
+import Tasks from './pages/Tasks';
+import Downloads from './pages/Downloads';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -46,6 +48,8 @@ function App() {
         <Route path="/trash" element={<Trash />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/buckets" element={<Buckets />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/downloads" element={<Downloads />} />
         <Route path="/admin" element={<Admin />} />
       </Route>
 
