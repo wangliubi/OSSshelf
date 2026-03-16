@@ -31,12 +31,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shared package
-        run: pnpm --filter @r2shelf/shared build
+        run: pnpm --filter @osshelf/shared build
 
       - name: Generate wrangler.toml
         run: |
           cat > apps/api/wrangler.toml << EOF
-          name = "r2shelf-api"
+          name = "osshelf-api"
           main = "src/index.ts"
           compatibility_date = "2024-01-01"
           compatibility_flags = ["nodejs_compat"]
