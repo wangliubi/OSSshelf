@@ -2,13 +2,14 @@
 
 <p align="center">
   <strong>基于 Cloudflare 部署的多厂商 OSS 文件管理系统</strong><br>
-  <sub>统一管理主流对象存储 · 支持 WebDAV 协议 · 预签名直传 · 安全分享</sub>
+  <sub>统一管理主流对象存储 · 支持 WebDAV 协议 · 预签名直传 · 安全分享 · PWA 支持</sub>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/TypeScript-5.3-blue?logo=typescript" alt="TypeScript">
   <img src="https://img.shields.io/badge/React-18-61dafb?logo=react" alt="React">
   <img src="https://img.shields.io/badge/Cloudflare-Workers-f38020?logo=cloudflare" alt="Cloudflare Workers">
+  <img src="https://img.shields.io/badge/PWA-Ready-5a0fc8?logo=pwa" alt="PWA Ready">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
 </p>
 
@@ -35,14 +36,36 @@
 
 | 功能 | 描述 |
 |------|------|
-| 📁 **文件管理** | 上传、下载、重命名、移动、删除文件和文件夹，支持拖拽上传 |
-| 🚀 **预签名直传** | 浏览器直传到对象存储，支持大文件分片上传（>100MB），绕过 Worker 代理限制 |
+| 📁 **文件管理** | 上传、下载、重命名、移动、删除文件和文件夹，支持拖拽上传、文件夹上传 |
+| 🚀 **预签名直传** | 浏览器直传到对象存储，支持大文件分片上传（>100MB），断点续传 |
 | 🔗 **文件分享** | 创建分享链接，支持密码保护、过期时间、下载次数限制 |
-| 🗑️ **回收站** | 软删除机制，支持恢复已删除文件，可永久删除或清空 |
+| 🗑️ **回收站** | 软删除机制，支持恢复已删除文件，自动清理过期文件 |
 | 📊 **存储配额** | 用户级别和存储桶级别的存储空间管理 |
-| 🔍 **搜索排序** | 按名称搜索文件，支持名称/大小/时间排序 |
+| 🔍 **高级搜索** | 按名称/类型/标签搜索，支持搜索建议和搜索历史 |
 | 🌐 **多厂商支持** | 统一管理多个云存储厂商的存储桶 |
 | 🔄 **存储桶切换** | 灵活的存储桶分配和默认存储桶设置 |
+| 📥 **离线下载** | 创建离线下载任务，支持 URL 下载到云存储 |
+| 🔐 **权限管理** | 文件/文件夹级别的权限控制，支持只读/读写/管理权限 |
+| 🏷️ **标签系统** | 为文件添加彩色标签，支持按标签筛选 |
+| 📝 **审计日志** | 记录所有操作，支持管理员查看 |
+
+### 大文件上传
+
+| 功能 | 描述 |
+|------|------|
+| 📦 **分片上传** | 大文件自动分片，支持 >5GB 文件上传 |
+| ⏸️ **断点续传** | 上传中断后可恢复，任务持久化存储 |
+| 📊 **进度显示** | 实时显示上传进度和分片状态 |
+| 🔄 **任务管理** | 查看上传任务列表，支持取消/重试 |
+
+### 安全特性
+
+| 功能 | 描述 |
+|------|------|
+| 🔒 **登录安全** | 登录失败锁定机制，防止暴力破解 |
+| 📱 **设备管理** | 查看已登录设备，支持远程注销 |
+| 🛡️ **权限控制** | 文件级别权限管理，支持用户授权 |
+| 📋 **审计追踪** | 记录所有敏感操作，支持追溯查询 |
 
 ### WebDAV 支持
 
@@ -63,11 +86,14 @@
 ### 界面特性
 
 - 🌙 深色/浅色主题自动适配
-- 📱 响应式设计，支持移动端
+- 📱 响应式设计，完美支持移动端
+- ⌨️ 键盘快捷键支持（全选、删除、重命名等）
+- 🖱️ 右键上下文菜单
+- 📊 多视图模式（列表/网格/瀑布流/图库）
+- 🖼️ 增强文件预览（代码高亮、Markdown 渲染、Office 文档）
 - ⚡ 实时上传进度显示
-- 🖼️ 图片/视频/音频/PDF 在线预览
 - 📂 文件夹拖拽上传
-- 🗃️ 多存储桶管理界面
+- 📱 PWA 支持，可安装到桌面
 
 ---
 
@@ -80,7 +106,7 @@
 │                        用户界面层                            │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  React 18 + TypeScript + Tailwind CSS + Zustand     │   │
-│  │  React Query + Radix UI + Vite                      │   │
+│  │  React Query + Radix UI + Vite + PWA                │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -91,6 +117,7 @@
 │  │  Hono Framework + Cloudflare Workers                 │   │
 │  │  REST API + WebDAV Protocol + Presigned URL          │   │
 │  │  S3 兼容存储客户端（多厂商支持）                       │   │
+│  │  Cron Triggers（定时任务）                           │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -103,7 +130,9 @@
 │  - 用户数据     │ │  - 文件内容     │ │  - Session      │
 │  - 文件元数据   │ │  - 支持大文件   │ │  - 临时缓存     │
 │  - 存储桶配置   │ │  - 跨厂商兼容   │ │                 │
-│  - WebDAV会话   │ │  - 直传支持     │ │                 │
+│  - 权限/标签    │ │  - 直传支持     │ │                 │
+│  - 审计日志     │ │                 │ │                 │
+│  - 上传/下载任务│ │                 │ │                 │
 └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
@@ -138,9 +167,10 @@
 
 | 服务 | 用途 |
 |------|------|
-| Cloudflare D1 | SQLite 数据库，存储用户、文件元数据、存储桶配置、WebDAV 会话 |
+| Cloudflare D1 | SQLite 数据库，存储用户、文件元数据、存储桶配置、权限、标签、审计日志、任务 |
 | Cloudflare KV | 键值存储（可选），Session 管理 |
 | 多厂商对象存储 | 通过 S3 兼容 API 存储文件内容，支持预签名直传 |
+| Cloudflare Cron | 定时任务，自动清理回收站、过期会话 |
 
 ---
 
@@ -172,6 +202,7 @@ OSSshelf/
 │   │   │   │   ├── index.ts          # 数据库连接
 │   │   │   │   └── schema.ts         # Drizzle Schema 定义
 │   │   │   ├── lib/
+│   │   │   │   ├── audit.ts          # 审计日志服务
 │   │   │   │   ├── bucketResolver.ts # 存储桶解析逻辑
 │   │   │   │   ├── crypto.ts         # 密码哈希、JWT 签名
 │   │   │   │   └── s3client.ts       # S3 兼容存储客户端
@@ -181,11 +212,18 @@ OSSshelf/
 │   │   │   │   └── index.ts
 │   │   │   ├── routes/
 │   │   │   │   ├── admin.ts          # 管理员路由
-│   │   │   │   ├── auth.ts           # 认证路由 (注册/登录/用户信息)
+│   │   │   │   ├── auth.ts           # 认证路由 (注册/登录/设备管理)
 │   │   │   │   ├── buckets.ts        # 存储桶管理路由
+│   │   │   │   ├── batch.ts          # 批量操作路由
+│   │   │   │   ├── cron.ts           # 定时任务路由
+│   │   │   │   ├── downloads.ts      # 离线下载路由
 │   │   │   │   ├── files.ts          # 文件操作路由
+│   │   │   │   ├── permissions.ts    # 权限/标签路由
 │   │   │   │   ├── presign.ts        # 预签名 URL 路由
+│   │   │   │   ├── preview.ts        # 文件预览路由
+│   │   │   │   ├── search.ts         # 搜索路由
 │   │   │   │   ├── share.ts          # 分享路由
+│   │   │   │   ├── tasks.ts          # 上传任务路由
 │   │   │   │   ├── webdav.ts         # WebDAV 协议实现
 │   │   │   │   └── index.ts
 │   │   │   ├── types/
@@ -193,10 +231,8 @@ OSSshelf/
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts              # 应用入口
 │   │   ├── migrations/               # D1 数据库迁移文件
-│   │   │   ├── 0001_init.sql
-│   │   │   ├── 0002_soft_delete.sql
-│   │   │   ├── 0003_storage_buckets.sql
-│   │   │   └── 0004_bucket_quota_and_file_bucket.sql
+│   │   │   ├── 0001_init.sql         # 初始化表结构
+│   │   │   └── 0002_optimization.sql # 性能优化索引、新表
 │   │   ├── drizzle.config.ts
 │   │   ├── wrangler.toml.example     # Workers 配置模板
 │   │   └── package.json
@@ -209,22 +245,35 @@ OSSshelf/
 │       │   │   │   └── MainLayout.tsx    # 主应用布局
 │       │   │   └── ui/
 │       │   │       ├── BreadcrumbNav.tsx # 面包屑导航
+│       │   │       ├── ContextMenu.tsx   # 右键菜单
+│       │   │       ├── DeviceManager.tsx # 设备管理
 │       │   │       ├── FileIcon.tsx      # 文件类型图标
+│       │   │       ├── FilePermissionsDialog.tsx # 权限管理
 │       │   │       ├── FilePreview.tsx   # 文件预览组件
+│       │   │       ├── FileTagsManager.tsx # 标签管理
+│       │   │       ├── KeyboardShortcutsDialog.tsx # 快捷键帮助
+│       │   │       ├── MobileBottomNav.tsx # 移动端底部导航
 │       │   │       ├── MoveFolderPicker.tsx
+│       │   │       ├── PWAInstallPrompt.tsx # PWA 安装提示
 │       │   │       ├── RenameDialog.tsx
 │       │   │       ├── StorageBar.tsx    # 存储空间进度条
 │       │   │       └── ...               # 其他 UI 组件
 │       │   ├── hooks/
-│       │   │   └── useFolderUpload.ts    # 文件夹上传 Hook
+│       │   │   ├── useFolderUpload.ts    # 文件夹上传 Hook
+│       │   │   ├── useGestures.ts        # 触摸手势 Hook
+│       │   │   ├── useKeyboardShortcuts.ts # 键盘快捷键 Hook
+│       │   │   ├── usePWA.ts             # PWA 功能 Hook
+│       │   │   └── useResponsive.ts      # 响应式布局 Hook
 │       │   ├── pages/
-│       │   │   ├── Admin.tsx             # 管理员页面
+│       │   │   ├── Admin.tsx             # 管理员页面（含审计日志）
 │       │   │   ├── Buckets.tsx           # 存储桶管理页面
 │       │   │   ├── Dashboard.tsx         # 仪表盘
+│       │   │   ├── Downloads.tsx         # 离线下载任务
 │       │   │   ├── Files.tsx             # 文件列表
 │       │   │   ├── Shares.tsx            # 分享管理
+│       │   │   ├── Tasks.tsx             # 上传任务管理
 │       │   │   ├── Trash.tsx             # 回收站
-│       │   │   ├── Settings.tsx          # 设置页面
+│       │   │   ├── Settings.tsx          # 设置页面（含设备管理）
 │       │   │   ├── Login.tsx
 │       │   │   ├── Register.tsx
 │       │   │   └── SharePage.tsx         # 公开分享页面
@@ -233,7 +282,7 @@ OSSshelf/
 │       │   │   └── presignUpload.ts      # 预签名上传服务
 │       │   ├── stores/
 │       │   │   ├── auth.ts               # 认证状态
-│       │   │   └── files.ts              # 文件状态
+│       │   │   └── files.ts              # 文件状态（视图、选择、剪贴板）
 │       │   ├── utils/
 │       │   │   ├── fileTypes.ts          # 文件类型判断
 │       │   │   └── index.ts              # 工具函数
@@ -241,7 +290,9 @@ OSSshelf/
 │       │   ├── main.tsx
 │       │   └── index.css
 │       ├── public/
-│       │   └── favicon.svg
+│       │   ├── favicon.svg
+│       │   ├── manifest.json            # PWA 清单
+│       │   └── sw.js                    # Service Worker
 │       ├── index.html
 │       ├── vite.config.ts
 │       ├── tailwind.config.js
@@ -311,15 +362,20 @@ wrangler kv:namespace create KV
 ### 配置 wrangler.toml
 
 ```toml
-name = "osshelf-api"
+name = "ossshelf-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "osshelf-db"
+database_name = "ossshelf-db"
 database_id = "your-d1-database-id"    # 替换为实际 ID
+
+# R2 绑定（可选，用于遗留文件迁移）
+# [[r2_buckets]]
+# binding = "FILES"
+# bucket_name = "ossshelf-files"
 
 [[kv_namespaces]]
 binding = "KV"
@@ -328,6 +384,10 @@ id = "your-kv-namespace-id"            # 替换为实际 ID（可选）
 [vars]
 ENVIRONMENT = "development"
 JWT_SECRET = "your-secure-jwt-secret"  # 替换为安全密钥
+
+# 定时任务
+[triggers]
+crons = ["0 3 * * *"]                  # 每天凌晨3点清理回收站
 ```
 
 ### 数据库迁移
@@ -365,6 +425,19 @@ pnpm dev:web
 | `ENVIRONMENT` | string | 运行环境 | `development` |
 | `JWT_SECRET` | string | JWT 签名密钥，生产环境必须修改 | - |
 
+#### GitHub Secrets（生产环境）
+
+在 GitHub 仓库 Settings → Secrets and variables → Actions 中配置：
+
+| Secret | 描述 |
+|--------|------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID |
+| `CLOUDFLARE_D1_DATABASE_ID` | D1 数据库 ID |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | KV 命名空间 ID |
+| `JWT_SECRET` | JWT 签名密钥 |
+| `TRASH_RETENTION_DAYS` | 回收站保留天数（可选，默认 30） |
+
 #### Web 应用
 
 | 变量 | 类型 | 描述 |
@@ -383,6 +456,13 @@ pnpm dev:web
 | `WEBDAV_SESSION_EXPIRY` | 30天 | WebDAV 会话有效期 |
 | `SHARE_DEFAULT_EXPIRY` | 7天 | 分享链接默认有效期 |
 | `UPLOAD_CHUNK_SIZE` | 10MB | 分片上传块大小 |
+| `MULTIPART_THRESHOLD` | 100MB | 触发分片上传的阈值 |
+| `MAX_CONCURRENT_PARTS` | 3 | 最大并发分片数 |
+| `TRASH_RETENTION_DAYS` | 30天 | 回收站文件保留天数 |
+| `LOGIN_MAX_ATTEMPTS` | 5 | 登录失败最大次数 |
+| `LOGIN_LOCKOUT_DURATION` | 15分钟 | 登录锁定时长 |
+| `DEVICE_SESSION_EXPIRY` | 30天 | 设备会话有效期 |
+| `UPLOAD_TASK_EXPIRY` | 24小时 | 上传任务有效期 |
 
 ### 存储桶配置
 
@@ -461,6 +541,249 @@ GET /api/auth/me
 Authorization: Bearer <token>
 ```
 
+#### 获取已登录设备
+
+```http
+GET /api/auth/devices
+Authorization: Bearer <token>
+```
+
+#### 注销设备
+
+```http
+DELETE /api/auth/devices/<deviceId>
+Authorization: Bearer <token>
+```
+
+### 上传任务接口
+
+#### 创建上传任务
+
+```http
+POST /api/tasks/create
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileName": "large-file.iso",
+  "fileSize": 5368709120,
+  "mimeType": "application/octet-stream",
+  "parentId": null,
+  "bucketId": null
+}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "taskId": "uuid",
+    "uploadId": "s3-upload-id",
+    "r2Key": "files/userId/fileId/large-file.iso",
+    "bucketId": "bucket-uuid"
+  }
+}
+```
+
+#### 获取分片上传 URL
+
+```http
+POST /api/tasks/part
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "taskId": "uuid",
+  "partNumber": 1
+}
+```
+
+#### 完成上传任务
+
+```http
+POST /api/tasks/complete
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "taskId": "uuid",
+  "parts": [
+    { "partNumber": 1, "etag": "etag-1" }
+  ]
+}
+```
+
+#### 列出上传任务
+
+```http
+GET /api/tasks/list
+Authorization: Bearer <token>
+```
+
+### 离线下载接口
+
+#### 创建下载任务
+
+```http
+POST /api/downloads/create
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "url": "https://example.com/file.zip",
+  "fileName": "downloaded-file.zip",
+  "parentId": null,
+  "bucketId": null
+}
+```
+
+#### 列出下载任务
+
+```http
+GET /api/downloads/list
+Authorization: Bearer <token>
+```
+
+#### 重试失败任务
+
+```http
+POST /api/downloads/<taskId>/retry
+Authorization: Bearer <token>
+```
+
+### 批量操作接口
+
+#### 批量删除
+
+```http
+POST /api/batch/delete
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileIds": ["id1", "id2", "id3"]
+}
+```
+
+#### 批量移动
+
+```http
+POST /api/batch/move
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileIds": ["id1", "id2"],
+  "targetParentId": "folder-id"
+}
+```
+
+#### 批量复制
+
+```http
+POST /api/batch/copy
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileIds": ["id1", "id2"],
+  "targetParentId": "folder-id"
+}
+```
+
+### 搜索接口
+
+#### 搜索文件
+
+```http
+GET /api/search?q=keyword&type=all&tags=tag1,tag2
+Authorization: Bearer <token>
+```
+
+#### 高级搜索
+
+```http
+POST /api/search/advanced
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "query": "keyword",
+  "mimeType": "image/",
+  "minSize": 0,
+  "maxSize": 10485760,
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
+  "tags": ["tag1"]
+}
+```
+
+### 权限接口
+
+#### 授予权限
+
+```http
+POST /api/permissions/grant
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileId": "file-id",
+  "userId": "user-id",
+  "permission": "read"  // read, write, admin
+}
+```
+
+#### 撤销权限
+
+```http
+POST /api/permissions/revoke
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileId": "file-id",
+  "userId": "user-id"
+}
+```
+
+#### 获取文件权限
+
+```http
+GET /api/permissions/file/<fileId>
+Authorization: Bearer <token>
+```
+
+### 标签接口
+
+#### 添加标签
+
+```http
+POST /api/permissions/tags/add
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileId": "file-id",
+  "name": "重要",
+  "color": "#ef4444"
+}
+```
+
+#### 移除标签
+
+```http
+POST /api/permissions/tags/remove
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fileId": "file-id",
+  "tagName": "重要"
+}
+```
+
 ### 预签名上传接口
 
 预签名上传允许浏览器直接向对象存储上传文件，绕过 Worker 代理限制，支持大文件分片上传。
@@ -476,8 +799,8 @@ Content-Type: application/json
   "fileName": "example.zip",
   "fileSize": 52428800,
   "mimeType": "application/zip",
-  "parentId": null,      // 可选
-  "bucketId": null       // 可选
+  "parentId": null,
+  "bucketId": null
 }
 ```
 
@@ -681,9 +1004,32 @@ Content-Type: application/json
 
 {
   "name": "新建文件夹",
-  "parentId": null,  // 可选
-  "bucketId": "bucket-id"  // 可选，指定存储桶
+  "parentId": null,
+  "bucketId": "bucket-id"
 }
+```
+
+### 文件预览接口
+
+#### 获取预览信息
+
+```http
+GET /api/preview/<fileId>/info
+Authorization: Bearer <token>
+```
+
+#### 获取原始内容
+
+```http
+GET /api/preview/<fileId>/raw
+Authorization: Bearer <token>
+```
+
+#### 获取缩略图
+
+```http
+GET /api/preview/<fileId>/thumbnail
+Authorization: Bearer <token>
 ```
 
 ### 其他接口
@@ -691,6 +1037,7 @@ Content-Type: application/json
 - **回收站管理**：`/api/files/trash` 相关接口
 - **分享管理**：`/api/share` 相关接口
 - **WebDAV**：`/dav` 路径，遵循 WebDAV 协议
+- **审计日志**：`/api/admin/audit-logs` 管理员接口
 
 ---
 
@@ -891,6 +1238,102 @@ webdavSessions: {
   token: string        // 会话令牌
   expiresAt: string    // 过期时间
   createdAt: string
+}
+
+// 文件标签表
+fileTags: {
+  id: string
+  fileId: string       // 文件 ID
+  userId: string       // 用户 ID
+  name: string         // 标签名称
+  color: string        // 标签颜色
+  createdAt: string
+}
+
+// 文件权限表
+filePermissions: {
+  id: string
+  fileId: string       // 文件 ID
+  userId: string       // 被授权用户 ID
+  permission: string   // read, write, admin
+  grantedBy: string    // 授权用户 ID
+  createdAt: string
+  updatedAt: string
+}
+
+// 审计日志表
+auditLogs: {
+  id: string
+  userId: string       // 操作用户 ID
+  action: string       // 操作类型
+  resourceType: string // 资源类型
+  resourceId: string   // 资源 ID
+  details: string      // 操作详情
+  ipAddress: string    // IP 地址
+  userAgent: string    // 用户代理
+  status: string       // success, failed
+  errorMessage: string // 错误信息
+  createdAt: string
+}
+
+// 登录尝试表
+loginAttempts: {
+  id: string
+  email: string        // 登录邮箱
+  ipAddress: string    // IP 地址
+  success: boolean     // 是否成功
+  userAgent: string    // 用户代理
+  createdAt: string
+}
+
+// 用户设备表
+userDevices: {
+  id: string
+  userId: string       // 用户 ID
+  deviceId: string     // 设备标识
+  deviceName: string   // 设备名称
+  deviceType: string   // desktop, mobile, tablet
+  ipAddress: string    // IP 地址
+  userAgent: string    // 用户代理
+  lastActive: string   // 最后活跃时间
+  createdAt: string
+}
+
+// 上传任务表
+uploadTasks: {
+  id: string
+  userId: string       // 用户 ID
+  fileName: string     // 文件名
+  fileSize: number     // 文件大小
+  mimeType: string     // MIME 类型
+  parentId: string     // 父文件夹 ID
+  bucketId: string     // 存储桶 ID
+  r2Key: string        // 存储键
+  uploadId: string     // S3 上传 ID
+  totalParts: number   // 总分片数
+  uploadedParts: string // 已上传分片 (JSON数组)
+  status: string       // pending, uploading, completed, failed, expired
+  errorMessage: string // 错误信息
+  createdAt: string
+  updatedAt: string
+  expiresAt: string    // 过期时间
+}
+
+// 下载任务表
+downloadTasks: {
+  id: string
+  userId: string       // 用户 ID
+  url: string          // 下载 URL
+  fileName: string     // 文件名
+  fileSize: number     // 文件大小
+  parentId: string     // 父文件夹 ID
+  bucketId: string     // 存储桶 ID
+  status: string       // pending, downloading, completed, failed
+  progress: number     // 进度
+  errorMessage: string // 错误信息
+  createdAt: string
+  updatedAt: string
+  completedAt: string  // 完成时间
 }
 ```
 

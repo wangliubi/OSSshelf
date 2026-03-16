@@ -69,13 +69,8 @@ jobs:
           JWT_SECRET = "${{ secrets.JWT_SECRET }}"
           TRASH_RETENTION_DAYS = "${{ secrets.TRASH_RETENTION_DAYS || '30' }}"
 
-          [[triggers]]
-          name = "trash-cleanup"
-          schedule = "0 3 * * *"
-
-          [[triggers]]
-          name = "session-cleanup"
-          schedule = "0 4 * * *"
+          [triggers]
+          crons = ["0 3 * * *", "0 4 * * *"]
           EOF
 
       - name: Deploy to Cloudflare Workers

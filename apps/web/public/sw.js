@@ -165,12 +165,14 @@ async function staleWhileRevalidate(request) {
   
   const fetchPromise = fetch(request).then((networkResponse) => {
     if (networkResponse.ok) {
-      const cache = caches.open(DYNAMIC_CACHE_NAME);
-      cache.then((c) => c.put(request, networkResponse.clone()));
+      const responseToCache = networkResponse.clone();
+      caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
+        cache.put(request, responseToCache);
+      });
     }
     return networkResponse;
   }).catch(() => {
-    return cachedResponse;
+    return cachedResponse || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
   });
   
   return cachedResponse || fetchPromise;

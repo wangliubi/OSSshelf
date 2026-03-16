@@ -23,8 +23,8 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and, isNull, isNotNull } from 'drizzle-orm';
-import { getDb, users, files, storageBuckets } from '../db';
+import { eq, and, isNull, isNotNull, desc, sql } from 'drizzle-orm';
+import { getDb, users, files, storageBuckets, auditLogs } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { ERROR_CODES } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
@@ -276,6 +276,57 @@ app.get('/stats', async (c) => {
       totalStorageUsed: totalStorage,
       totalStorageQuota: totalQuota,
       providerBreakdown,
+    },
+  });
+});
+
+// ── GET /api/admin/audit-logs ─────────────────────────────────────────────
+
+app.get('/audit-logs', async (c) => {
+  const page = Math.max(1, parseInt(c.req.query('page') || '1'));
+  const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') || '20')));
+  const userId = c.req.query('userId');
+  const action = c.req.query('action');
+
+  const db = getDb(c.env.DB);
+
+  const conditions: any[] = [];
+  if (userId) conditions.push(eq(auditLogs.userId, userId));
+  if (action) conditions.push(eq(auditLogs.action, action));
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [items, countResult] = await Promise.all([
+    db.select().from(auditLogs)
+      .where(whereClause)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit)
+      .offset((page - 1) * limit)
+      .all(),
+    db.select({ count: sql<number>`count(*)` }).from(auditLogs).where(whereClause).get(),
+  ]);
+
+  const total = countResult?.count ?? 0;
+
+  const enrichedItems = await Promise.all(items.map(async (log) => {
+    let userEmail = null;
+    if (log.userId) {
+      const user = await db.select({ email: users.email }).from(users).where(eq(users.id, log.userId)).get();
+      userEmail = user?.email ?? null;
+    }
+    return {
+      ...log,
+      userEmail,
+    };
+  }));
+
+  return c.json({
+    success: true,
+    data: {
+      items: enrichedItems,
+      total,
+      page,
+      limit,
     },
   });
 });

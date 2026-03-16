@@ -139,9 +139,9 @@ export default function Settings() {
     navigator.clipboard.writeText(text).then(() => toast({ title: msg }));
   };
 
-  const currentDeviceId = devices.find((d) => d.lastUsedAt === devices.reduce((a, b) => 
-    new Date(a.lastUsedAt) > new Date(b.lastUsedAt) ? a : b
-  ).lastUsedAt)?.id;
+  const currentDeviceId = devices.find((d) => d.lastActive === devices.reduce((a, b) => 
+    new Date(a.lastActive) > new Date(b.lastActive) ? a : b
+  ).lastActive)?.id;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -349,7 +349,7 @@ export default function Settings() {
                         )}
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {formatDate(device.lastUsedAt)}
+                          {formatDate(device.lastActive)}
                         </span>
                       </div>
                     </div>

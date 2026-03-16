@@ -114,7 +114,11 @@
     {
       "action": "/files?action=open",
       "accept": {
-        "*/*": [".*"]
+        "image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"],
+        "video/*": [".mp4", ".webm", ".mov", ".avi"],
+        "audio/*": [".mp3", ".wav", ".ogg", ".flac"],
+        "application/pdf": [".pdf"],
+        "text/*": [".txt", ".md", ".json", ".csv"]
       }
     }
   ],
