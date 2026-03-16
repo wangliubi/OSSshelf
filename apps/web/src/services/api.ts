@@ -295,7 +295,6 @@ export interface RegistrationConfig {
 }
 
 export const adminApi = {
-  // Users
   listUsers: () =>
     api.get<ApiResponse<AdminUser[]>>('/api/admin/users'),
   getUser: (id: string) =>
@@ -305,7 +304,6 @@ export const adminApi = {
   deleteUser: (id: string) =>
     api.delete<ApiResponse<{ message: string }>>(`/api/admin/users/${id}`),
 
-  // Registration control
   getRegistration: () =>
     api.get<ApiResponse<RegistrationConfig>>('/api/admin/registration'),
   setRegistration: (data: { open?: boolean; requireInviteCode?: boolean }) =>
@@ -315,7 +313,70 @@ export const adminApi = {
   revokeCode: (code: string) =>
     api.delete<ApiResponse<{ message: string }>>(`/api/admin/registration/codes/${code}`),
 
-  // Stats
   stats: () =>
     api.get<ApiResponse<AdminStats>>('/api/admin/stats'),
 };
+
+// ── Presign ───────────────────────────────────────────────────────────────
+export interface PresignUploadResponse {
+  useProxy?: boolean;
+  uploadUrl?: string;
+  fileId?: string;
+  r2Key?: string;
+  bucketId?: string;
+  expiresIn?: number;
+}
+
+export interface PresignMultipartInitResponse {
+  useProxy?: boolean;
+  uploadId?: string;
+  fileId?: string;
+  r2Key?: string;
+  bucketId?: string;
+  firstPartUrl?: string;
+}
+
+export interface PresignPartResponse {
+  partUrl: string;
+  partNumber: number;
+}
+
+export interface PresignDownloadResponse {
+  useProxy?: boolean;
+  proxyUrl?: string;
+  downloadUrl?: string;
+  previewUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+  expiresIn?: number;
+}
+
+export const presignApi = {
+  upload: (data: { fileName: string; fileSize: number; mimeType?: string; parentId?: string | null; bucketId?: string | null }) =>
+    api.post<ApiResponse<PresignUploadResponse>>('/api/presign/upload', data),
+  confirm: (data: { fileId: string; fileName: string; fileSize: number; mimeType?: string; parentId?: string | null; r2Key: string; bucketId?: string | null }) =>
+    api.post<ApiResponse<UploadedFile>>('/api/presign/confirm', data),
+  multipartInit: (data: { fileName: string; fileSize: number; mimeType?: string; parentId?: string | null; bucketId?: string | null }) =>
+    api.post<ApiResponse<PresignMultipartInitResponse>>('/api/presign/multipart/init', data),
+  multipartPart: (data: { r2Key: string; uploadId: string; partNumber: number; bucketId?: string | null }) =>
+    api.post<ApiResponse<PresignPartResponse>>('/api/presign/multipart/part', data),
+  multipartComplete: (data: { fileId: string; fileName: string; fileSize: number; mimeType?: string; parentId?: string | null; r2Key: string; uploadId: string; bucketId?: string | null; parts: Array<{ partNumber: number; etag: string }> }) =>
+    api.post<ApiResponse<UploadedFile>>('/api/presign/multipart/complete', data),
+  multipartAbort: (data: { r2Key: string; uploadId: string; bucketId?: string | null }) =>
+    api.post<ApiResponse<{ message: string }>>('/api/presign/multipart/abort', data),
+  download: (fileId: string) =>
+    api.get<ApiResponse<PresignDownloadResponse>>(`/api/presign/download/${fileId}`),
+  preview: (fileId: string) =>
+    api.get<ApiResponse<PresignDownloadResponse>>(`/api/presign/preview/${fileId}`),
+};
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string | null;
+  path: string;
+  bucketId: string | null;
+  createdAt: string;
+}

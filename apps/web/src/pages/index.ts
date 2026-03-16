@@ -6,3 +6,4 @@ export { default as Shares } from './Shares';
 export { default as Trash } from './Trash';
 export { default as Settings } from './Settings';
 export { default as SharePage } from './SharePage';
+export { default as Admin } from './Admin';

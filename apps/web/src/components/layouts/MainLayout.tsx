@@ -7,12 +7,12 @@ import { useQuery } from '@tanstack/react-query';
 import { filesApi } from '@/services/api';
 import {
   LayoutDashboard, FolderOpen, Share2, Settings, LogOut,
-  Menu, X, HardDrive, Trash2, Database,
+  Menu, X, HardDrive, Trash2, Database, Shield,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/utils';
 
-const navItems = [
+const baseNavItems = [
   { path: '/', label: '概览', icon: LayoutDashboard, exact: true },
   { path: '/files', label: '文件', icon: FolderOpen, exact: false },
   { path: '/shares', label: '分享', icon: Share2, exact: false },
@@ -21,10 +21,14 @@ const navItems = [
   { path: '/settings', label: '设置', icon: Settings, exact: false },
 ];
 
+const adminNavItem = { path: '/admin', label: '管理', icon: Shield, exact: false };
+
 export default function MainLayout() {
   const location = useLocation();
   const { user, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navItems = user?.role === 'admin' ? [...baseNavItems, adminNavItem] : baseNavItems;
 
   const { data: trashItems = [] } = useQuery({
     queryKey: ['trash'],

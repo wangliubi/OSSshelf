@@ -126,51 +126,33 @@ async function handlePropfind(c: AppContext, userId: string, path: string) {
   const db = getDb(c.env.DB);
 
   let parentCondition;
+  let parentFolder = null;
+  
   if (path === '/') {
     parentCondition = isNull(files.parentId);
   } else {
-    // 尝试查找带斜杠和不带斜杠的路径
-    let parentFolder = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path))).get();
-    
-    // 如果没找到，尝试带斜杠的路径
-    if (!parentFolder) {
-      parentFolder = await db.select().from(files)
-        .where(and(eq(files.userId, userId), eq(files.path, path + '/'))).get();
+    parentFolder = await findFileByPath(db, userId, path);
+    if (parentFolder) {
+      parentCondition = eq(files.parentId, parentFolder.id);
+    } else {
+      return new Response(buildPropfindXML([], '/dav'), {
+        status: 207,
+        headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+      });
     }
-    
-    // 如果没找到，尝试不带斜杠的路径
-    if (!parentFolder && path.endsWith('/')) {
-      parentFolder = await db.select().from(files)
-        .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)))).get();
-    }
-    
-    if (!parentFolder) return new Response('Not Found', { status: 404 });
-    parentCondition = eq(files.parentId, parentFolder.id);
   }
 
   const items = await db.select().from(files)
-    .where(and(eq(files.userId, userId), parentCondition)).all();
+    .where(and(eq(files.userId, userId), parentCondition, isNull(files.deletedAt))).all();
 
   if (depth === '0') {
-    let current = null;
     if (path !== '/') {
-      // 尝试查找带斜杠和不带斜杠的路径
-      current = await db.select().from(files).where(and(eq(files.userId, userId), eq(files.path, path))).get();
-      
-      // 如果没找到，尝试带斜杠的路径
-      if (!current) {
-        current = await db.select().from(files)
-          .where(and(eq(files.userId, userId), eq(files.path, path + '/'))).get();
-      }
-      
-      // 如果没找到，尝试不带斜杠的路径
-      if (!current && path.endsWith('/')) {
-        current = await db.select().from(files)
-          .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)))).get();
-      }
+      const current = await findFileByPath(db, userId, path);
+      if (current) items.unshift(current);
+    } else {
+      const rootFolder = { id: 'root', path: '/', name: '', isFolder: true, size: 0, mimeType: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      items.unshift(rootFolder as any);
     }
-    if (current) items.unshift(current);
   }
 
   return new Response(buildPropfindXML(items, '/dav'), {
@@ -179,24 +161,26 @@ async function handlePropfind(c: AppContext, userId: string, path: string) {
   });
 }
 
-async function handleGet(c: AppContext, userId: string, path: string, headOnly: boolean) {
-  const db = getDb(c.env.DB);
-  
-  // 尝试查找带斜杠和不带斜杠的路径
+async function findFileByPath(db: ReturnType<typeof getDb>, userId: string, path: string) {
   let file = await db.select().from(files)
-    .where(and(eq(files.userId, userId), eq(files.path, path))).get();
+    .where(and(eq(files.userId, userId), eq(files.path, path), isNull(files.deletedAt))).get();
   
-  // 如果没找到，尝试带斜杠的路径
   if (!file) {
     file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path + '/'))).get();
+      .where(and(eq(files.userId, userId), eq(files.path, path + '/'), isNull(files.deletedAt))).get();
   }
   
-  // 如果没找到，尝试不带斜杠的路径
   if (!file && path.endsWith('/')) {
     file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)))).get();
+      .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)), isNull(files.deletedAt))).get();
   }
+  
+  return file;
+}
+
+async function handleGet(c: AppContext, userId: string, path: string, headOnly: boolean) {
+  const db = getDb(c.env.DB);
+  const file = await findFileByPath(db, userId, path);
 
   if (!file) return new Response('Not Found', { status: 404 });
   if (file.isFolder) return new Response('Is a collection', { status: 400 });
@@ -225,29 +209,12 @@ async function handlePut(c: AppContext, userId: string, path: string) {
   let parentId: string | null = null;
 
   if (parentPath !== '/') {
-    // 尝试查找带斜杠和不带斜杠的路径
-    let parentFolder = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, parentPath))).get();
-    
-    // 如果没找到，尝试带斜杠的路径
-    if (!parentFolder) {
-      parentFolder = await db.select().from(files)
-        .where(and(eq(files.userId, userId), eq(files.path, parentPath + '/'))).get();
-    }
-    
+    const parentFolder = await findFileByPath(db, userId, parentPath);
     if (!parentFolder) return new Response('Conflict: parent folder not found', { status: 409 });
     parentId = parentFolder.id;
   }
 
-  // 查找文件时也处理路径一致性
-  let existingFile = await db.select().from(files)
-    .where(and(eq(files.userId, userId), eq(files.path, path))).get();
-  
-  // 如果没找到，尝试带斜杠的路径（针对文件夹）
-  if (!existingFile && path.endsWith('/')) {
-    existingFile = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)))).get();
-  }
+  const existingFile = await findFileByPath(db, userId, path);
 
   const fileId = existingFile?.id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -286,25 +253,14 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
   let parentId: string | null = null;
 
   if (parentPath !== '/') {
-    // 尝试查找带斜杠和不带斜杠的路径
-    let parentFolder = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, parentPath))).get();
-    
-    // 如果没找到，尝试带斜杠的路径
-    if (!parentFolder) {
-      parentFolder = await db.select().from(files)
-        .where(and(eq(files.userId, userId), eq(files.path, parentPath + '/'))).get();
-    }
-    
+    const parentFolder = await findFileByPath(db, userId, parentPath);
     if (!parentFolder) return new Response('Conflict: parent not found', { status: 409 });
     parentId = parentFolder.id;
   }
 
-  // 规范化路径，确保以斜杠结尾
   const normalizedPath = path.endsWith('/') ? path : path + '/';
   
-  const existing = await db.select().from(files)
-    .where(and(eq(files.userId, userId), eq(files.path, normalizedPath))).get();
+  const existing = await findFileByPath(db, userId, normalizedPath);
   if (existing) return new Response('Method Not Allowed: already exists', { status: 405 });
 
   const folderId = crypto.randomUUID();
@@ -312,7 +268,8 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
 
   await db.insert(files).values({
     id: folderId, userId, parentId, name: folderName, path: normalizedPath, type: 'folder',
-    size: 0, r2Key: `folders/${folderId}`, mimeType: null, hash: null, isFolder: true, createdAt: now, updatedAt: now,
+    size: 0, r2Key: `folders/${folderId}`, mimeType: null, hash: null, isFolder: true, 
+    createdAt: now, updatedAt: now, deletedAt: null,
   });
 
   return new Response(null, { status: 201 });
@@ -320,22 +277,7 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
 
 async function handleDelete(c: AppContext, userId: string, path: string) {
   const db = getDb(c.env.DB);
-  
-  // 尝试查找带斜杠和不带斜杠的路径
-  let file = await db.select().from(files)
-    .where(and(eq(files.userId, userId), eq(files.path, path))).get();
-  
-  // 如果没找到，尝试带斜杠的路径
-  if (!file) {
-    file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path + '/'))).get();
-  }
-  
-  // 如果没找到，尝试不带斜杠的路径
-  if (!file && path.endsWith('/')) {
-    file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)))).get();
-  }
+  const file = await findFileByPath(db, userId, path);
 
   if (!file) return new Response('Not Found', { status: 404 });
 
@@ -359,22 +301,7 @@ async function handleMove(c: AppContext, userId: string, path: string) {
 
   const destPath = new URL(destination).pathname.replace(/^\/dav/, '') || '/';
   const db = getDb(c.env.DB);
-
-  // 尝试查找带斜杠和不带斜杠的路径
-  let file = await db.select().from(files)
-    .where(and(eq(files.userId, userId), eq(files.path, path))).get();
-  
-  // 如果没找到，尝试带斜杠的路径
-  if (!file) {
-    file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path + '/'))).get();
-  }
-  
-  // 如果没找到，尝试不带斜杠的路径
-  if (!file && path.endsWith('/')) {
-    file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)))).get();
-  }
+  const file = await findFileByPath(db, userId, path);
 
   if (!file) return new Response('Not Found', { status: 404 });
 
@@ -392,22 +319,7 @@ async function handleCopy(c: AppContext, userId: string, path: string) {
 
   const destPath = new URL(destination).pathname.replace(/^\/dav/, '') || '/';
   const db = getDb(c.env.DB);
-
-  // 尝试查找带斜杠和不带斜杠的路径
-  let file = await db.select().from(files)
-    .where(and(eq(files.userId, userId), eq(files.path, path))).get();
-  
-  // 如果没找到，尝试带斜杠的路径
-  if (!file) {
-    file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path + '/'))).get();
-  }
-  
-  // 如果没找到，尝试不带斜杠的路径
-  if (!file && path.endsWith('/')) {
-    file = await db.select().from(files)
-      .where(and(eq(files.userId, userId), eq(files.path, path.slice(0, -1)))).get();
-  }
+  const file = await findFileByPath(db, userId, path);
 
   if (!file) return new Response('Not Found', { status: 404 });
 
