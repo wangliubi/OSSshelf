@@ -79,6 +79,7 @@ export default function Admin() {
 function UsersTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser, updateUser } = useAuthStore();
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; role: 'admin' | 'user'; storageQuota: string; newPassword: string }>({ name: '', role: 'user', storageQuota: '', newPassword: '' });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -91,9 +92,17 @@ function UsersTab() {
   const patchMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof adminApi.patchUser>[1] }) =>
       adminApi.patchUser(id, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({ title: '用户已更新' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      if (variables.id === currentUser?.id) {
+        if (variables.data.storageQuota !== undefined) {
+          updateUser({ storageQuota: variables.data.storageQuota });
+        }
+        if (variables.data.name !== undefined) {
+          updateUser({ name: variables.data.name });
+        }
+      }
       setEditingUser(null);
     },
     onError: (e: any) => toast({ title: '更新失败', description: e.response?.data?.error?.message, variant: 'destructive' }),
