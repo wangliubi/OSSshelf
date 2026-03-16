@@ -126,7 +126,7 @@ export interface UserDevice {
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   ipAddress: string | null;
   userAgent: string | null;
-  lastUsedAt: string;
+  lastActive: string;
   createdAt: string;
 }
 
@@ -141,7 +141,7 @@ export interface UploadTask {
   r2Key: string;
   uploadId: string;
   totalParts: number;
-  uploadedParts: number;
+  uploadedParts: number[];
   status: UploadTaskStatus;
   errorMessage: string | null;
   createdAt: string;

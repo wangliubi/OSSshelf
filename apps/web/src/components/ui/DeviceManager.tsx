@@ -97,7 +97,7 @@ export function DeviceManager() {
         const DeviceIcon = getDeviceIcon(device.userAgent || '');
         const browser = getBrowserName(device.userAgent || '');
         const os = getOSName(device.userAgent || '');
-        const isCurrent = device.id === user?.id || device.lastUsedAt === devices[0]?.lastUsedAt;
+        const isCurrent = device.id === user?.id || device.lastActive === devices[0]?.lastActive;
 
         return (
           <div
@@ -135,7 +135,7 @@ export function DeviceManager() {
                 )}
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {formatDate(device.lastUsedAt)}
+                  {formatDate(device.lastActive)}
                 </span>
               </div>
             </div>

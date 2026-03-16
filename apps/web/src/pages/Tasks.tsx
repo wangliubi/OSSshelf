@@ -173,7 +173,7 @@ function TaskItem({
 }) {
   const status = STATUS_CONFIG[task.status] ?? DEFAULT_STATUS;
   const progress = task.totalParts > 0
-    ? Math.round((task.uploadedParts / task.totalParts) * 100)
+    ? Math.round((task.uploadedParts.length / task.totalParts) * 100)
     : 0;
   const StatusIcon = status.icon;
 
@@ -199,7 +199,7 @@ function TaskItem({
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
           <span>{formatBytes(task.fileSize)}</span>
-          <span>{task.uploadedParts} / {task.totalParts} 分片</span>
+          <span>{task.uploadedParts.length} / {task.totalParts} 分片</span>
           <span>{formatDate(task.createdAt)}</span>
         </div>
         {(task.status === 'uploading' || task.status === 'pending') && (

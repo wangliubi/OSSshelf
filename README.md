@@ -1311,7 +1311,7 @@ uploadTasks: {
   r2Key: string        // 存储键
   uploadId: string     // S3 上传 ID
   totalParts: number   // 总分片数
-  uploadedParts: string // 已上传分片 (JSON数组)
+  uploadedParts: string // 已上传分片编号 (JSON数组)
   status: string       // pending, uploading, completed, failed, expired
   errorMessage: string // 错误信息
   createdAt: string
