@@ -23,6 +23,7 @@ export interface FileItem {
   mimeType: string | null;
   hash: string | null;
   isFolder: boolean;
+  allowedMimeTypes?: string | null;
   bucketId: string | null;
   createdAt: string;
   updatedAt: string;

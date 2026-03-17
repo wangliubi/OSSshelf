@@ -16,7 +16,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFileStore, type ViewMode } from '@/stores/files';
 import { useAuthStore } from '@/stores/auth';
-import { filesApi, shareApi, bucketsApi, PROVIDER_META, type StorageBucket, permissionsApi } from '@/services/api';
+import { filesApi, shareApi, bucketsApi, PROVIDER_META, type StorageBucket, permissionsApi, searchApi } from '@/services/api';
 import { presignUpload } from '@/services/presignUpload';
 import { useFolderUpload } from '@/hooks/useFolderUpload';
 import { useFileKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -31,6 +31,8 @@ import { RenameDialog } from '@/components/ui/RenameDialog';
 import { MoveFolderPicker } from '@/components/ui/MoveFolderPicker';
 import { FileTagsManager } from '@/components/ui/FileTagsManager';
 import { FileTagsDisplay } from '@/components/ui/FileTagsDisplay';
+import { FilePermissionManager } from '@/components/ui/FilePermissionManager';
+import { FolderSettings } from '@/components/ui/FolderSettings';
 import { useToast } from '@/components/ui/use-toast';
 import { formatBytes, formatDate } from '@/utils';
 import { getFileCategory, getCategoryBg, isPreviewable } from '@/utils/fileTypes';
@@ -40,7 +42,7 @@ import {
   Search, X, Pencil, Eye, CheckSquare, Square, SortAsc, SortDesc,
   Image as ImageIcon, FolderInput, Database, MoreVertical,
   Copy, Scissors, Clipboard, RefreshCw, Columns, LayoutGrid,
-  CheckCircle2, Tag, AlertTriangle,
+  CheckCircle2, Tag, AlertTriangle, Shield, Settings,
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import type { FileItem } from '@osshelf/shared';
@@ -183,6 +185,10 @@ export default function Files() {
   const [searchInput, setSearchInput] = useState('');
   const [galleryMode, setGalleryMode] = useState(false);
   const [tagsFile, setTagsFile] = useState<FileItem | null>(null);
+  const [tagSearchQuery, setTagSearchQuery] = useState<string | null>(null);
+  const [permissionFile, setPermissionFile] = useState<FileItem | null>(null);
+  const [recursiveSearch, setRecursiveSearch] = useState(false);
+  const [folderSettingsFile, setFolderSettingsFile] = useState<FileItem | null>(null);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -228,6 +234,42 @@ export default function Files() {
     queryFn: () => filesApi.list({ parentId: folderId || null }).then((r) => r.data.data ?? []),
   });
 
+  const { data: tagSearchResults, isLoading: isTagSearchLoading } = useQuery<FileItem[]>({
+    queryKey: ['tag-search', tagSearchQuery],
+    queryFn: async () => {
+      if (!tagSearchQuery) return [];
+      const res = await searchApi.query({ tags: [tagSearchQuery] });
+      return res.data.data?.items ?? [];
+    },
+    enabled: !!tagSearchQuery,
+  });
+
+  const { data: recursiveSearchResults, isLoading: isRecursiveSearchLoading } = useQuery<FileItem[]>({
+    queryKey: ['recursive-search', folderId, searchQuery],
+    queryFn: async () => {
+      if (!searchQuery || !recursiveSearch) return [];
+      const res = await searchApi.query({
+        query: searchQuery,
+        parentId: folderId || undefined,
+        recursive: true,
+      });
+      return res.data.data?.items ?? [];
+    },
+    enabled: !!searchQuery && recursiveSearch,
+  });
+
+  const handleTagClick = useCallback((tagName: string) => {
+    setTagSearchQuery(tagName);
+    setSearchQuery(tagName);
+    setSearchInput(tagName);
+  }, []);
+
+  const clearTagSearch = useCallback(() => {
+    setTagSearchQuery(null);
+    setSearchQuery('');
+    setSearchInput('');
+  }, []);
+
   const fileIds = files.map((f) => f.id);
   const { data: fileTagsMap = {} } = useQuery<Record<string, any[]>>({
     queryKey: ['file-tags-batch', fileIds.sort().join(',')],
@@ -240,13 +282,17 @@ export default function Files() {
     staleTime: 30000,
   });
 
-  const displayFiles = [...files]
-    .filter((f) => !searchQuery || f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => {
-      if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
-      const av = (a as any)[sortBy] ?? '', bv = (b as any)[sortBy] ?? '';
-      return sortOrder === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
-    });
+  const displayFiles = tagSearchQuery
+    ? (tagSearchResults ?? [])
+    : recursiveSearch && recursiveSearchResults
+      ? (recursiveSearchResults ?? [])
+      : [...files]
+          .filter((f) => !searchQuery || f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          .sort((a, b) => {
+            if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+            const av = (a as any)[sortBy] ?? '', bv = (b as any)[sortBy] ?? '';
+            return sortOrder === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+          });
 
   const imageFiles = displayFiles.filter((f) => f.mimeType?.startsWith('image/'));
   const hasImages = imageFiles.length > 0;
@@ -435,6 +481,19 @@ export default function Files() {
         label: '标签管理',
         icon: <Tag className="h-4 w-4" />,
         action: () => setTagsFile(file),
+      },
+      {
+        id: 'permissions',
+        label: '权限管理',
+        icon: <Shield className="h-4 w-4" />,
+        action: () => setPermissionFile(file),
+      },
+      {
+        id: 'folderSettings',
+        label: '文件夹设置',
+        icon: <Settings className="h-4 w-4" />,
+        action: () => setFolderSettingsFile(file),
+        disabled: !file.isFolder,
       },
       { id: 'divider2', label: '', divider: true },
       {
@@ -627,17 +686,44 @@ export default function Files() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               ref={searchInputRef}
-              className="pl-8 pr-8 h-9 w-40 sm:w-52 rounded-md border bg-background text-sm outline-none focus:ring-2 focus:ring-ring"
-              placeholder="搜索文件..."
+              className={cn(
+                "pl-8 pr-8 h-9 w-40 sm:w-52 rounded-md border bg-background text-sm outline-none focus:ring-2 focus:ring-ring",
+                tagSearchQuery && "border-primary ring-2 ring-primary/20"
+              )}
+              placeholder={tagSearchQuery ? `标签: ${tagSearchQuery}` : "搜索文件..."}
               value={searchInput}
-              onChange={(e) => { setSearchInput(e.target.value); setSearchQuery(e.target.value); }}
+              onChange={(e) => { setSearchInput(e.target.value); setSearchQuery(e.target.value); if (tagSearchQuery) setTagSearchQuery(null); }}
             />
-            {searchInput && (
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearchInput(''); setSearchQuery(''); }}>
+            {(searchInput || tagSearchQuery) && (
+              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearchInput(''); setSearchQuery(''); setTagSearchQuery(null); }}>
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
+          
+          {tagSearchQuery && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 border border-primary/20 rounded-md text-sm">
+              <Tag className="h-3.5 w-3.5 text-primary" />
+              <span className="text-primary font-medium">{tagSearchQuery}</span>
+              <button onClick={clearTagSearch} className="ml-1 hover:bg-primary/20 rounded p-0.5">
+                <X className="h-3 w-3 text-primary" />
+              </button>
+            </div>
+          )}
+          
+          <button
+            onClick={() => setRecursiveSearch(!recursiveSearch)}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border",
+              recursiveSearch
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : "bg-muted/50 border-transparent text-muted-foreground hover:text-foreground"
+            )}
+            title={recursiveSearch ? "当前：递归搜索子目录" : "点击启用递归搜索子目录"}
+          >
+            <FolderInput className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">递归</span>
+          </button>
           
           <Button variant="outline" size="sm" onClick={() => handleSort('name')} className="hidden sm:flex gap-1">
             名称 {sortBy === 'name' && (sortOrder === 'asc' ? <SortAsc className="h-3.5 w-3.5" /> : <SortDesc className="h-3.5 w-3.5" />)}
@@ -783,6 +869,48 @@ export default function Files() {
         </div>
       )}
 
+      {permissionFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card border rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">权限管理</h2>
+              <button onClick={() => setPermissionFile(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4 truncate">
+              文件: {permissionFile.name}
+            </p>
+            <FilePermissionManager fileId={permissionFile.id} isOwner={true} />
+            <div className="flex justify-end mt-4">
+              <Button variant="outline" onClick={() => setPermissionFile(null)}>关闭</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {folderSettingsFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card border rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">文件夹设置</h2>
+              <button onClick={() => setFolderSettingsFile(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4 truncate">
+              文件夹: {folderSettingsFile.name}
+            </p>
+            <FolderSettings
+              folderId={folderSettingsFile.id}
+              folderName={folderSettingsFile.name}
+              currentAllowedTypes={(folderSettingsFile as any).allowedMimeTypes ? JSON.parse((folderSettingsFile as any).allowedMimeTypes) : null}
+              onClose={() => setFolderSettingsFile(null)}
+            />
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="text-center py-16 text-muted-foreground">加载中...</div>
       ) : displayFiles.length === 0 ? (
@@ -800,6 +928,7 @@ export default function Files() {
             <GalleryItem
               key={file.id}
               file={file}
+              token={token || ''}
               onClick={() => setPreviewFile(file)}
               onDelete={() => confirm(`删除 "${file.name}"？`) && deleteMutation.mutate(file.id)}
               onContextMenu={(e) => handleContextMenu(e, file)}
@@ -826,7 +955,7 @@ export default function Files() {
               onPreview={setPreviewFile}
               onMove={setMoveFile}
               onContextMenu={handleContextMenu}
-              onTagClick={(tagName) => setSearchQuery(tagName)}
+              onTagClick={handleTagClick}
             />
           ))}
         </div>
@@ -851,7 +980,7 @@ export default function Files() {
               onPreview={setPreviewFile}
               onMove={setMoveFile}
               onContextMenu={handleContextMenu}
-              onTagClick={(tagName) => setSearchQuery(tagName)}
+              onTagClick={handleTagClick}
             />
           ))}
         </div>
@@ -876,7 +1005,7 @@ export default function Files() {
               onPreview={setPreviewFile}
               onMove={setMoveFile}
               onContextMenu={handleContextMenu}
-              onTagClick={(tagName) => setSearchQuery(tagName)}
+              onTagClick={handleTagClick}
             />
           ))}
         </div>
@@ -1050,7 +1179,7 @@ function MasonryItem({ file, isSelected, tags, onClick, onToggleSelect, onDownlo
   );
 }
 
-function GalleryItem({ file, onClick, onDelete, onContextMenu }: { file: FileItem; onClick: () => void; onDelete: () => void; onContextMenu: (e: React.MouseEvent) => void }) {
+function GalleryItem({ file, token, onClick, onDelete, onContextMenu }: { file: FileItem; token?: string; onClick: () => void; onDelete: () => void; onContextMenu: (e: React.MouseEvent) => void }) {
   const { isMobile } = useResponsive();
   
   return (
@@ -1059,7 +1188,7 @@ function GalleryItem({ file, onClick, onDelete, onContextMenu }: { file: FileIte
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
-      <img src={filesApi.previewUrl(file.id)} alt={file.name} className="w-full block object-cover" loading="lazy" />
+      <img src={filesApi.previewUrl(file.id, token)} alt={file.name} className="w-full block object-cover" loading="lazy" />
       <div className={cn(
         "absolute inset-0 bg-black/40 transition-opacity flex flex-col justify-end p-2",
         isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"

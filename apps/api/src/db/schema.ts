@@ -27,6 +27,7 @@ export const files = sqliteTable('files', {
   mimeType: text('mime_type'),
   hash: text('hash'),
   isFolder: integer('is_folder', { mode: 'boolean' }).default(false).notNull(),
+  allowedMimeTypes: text('allowed_mime_types'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),

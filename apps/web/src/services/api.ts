@@ -97,6 +97,8 @@ export const filesApi = {
     api.post<ApiResponse<FileItem>>('/api/files', { name, parentId, bucketId }),
   update: (id: string, data: { name?: string; parentId?: string | null }) =>
     api.put<ApiResponse<{ message: string }>>(`/api/files/${id}`, data),
+  updateSettings: (id: string, data: { allowedMimeTypes?: string[] | null }) =>
+    api.put<ApiResponse<{ message: string; allowedMimeTypes?: string[] | null }>>(`/api/files/${id}/settings`, data),
   delete: (id: string) =>
     api.delete<ApiResponse<{ message: string }>>(`/api/files/${id}`),
   move: (id: string, targetParentId: string | null) =>
@@ -118,8 +120,10 @@ export const filesApi = {
     api.get(`/api/files/${id}/download`, { responseType: 'blob' }),
   preview: (id: string) =>
     api.get(`/api/files/${id}/preview`, { responseType: 'blob' }),
-  previewUrl: (id: string) =>
-    `${import.meta.env.VITE_API_URL || ''}/api/files/${id}/preview`,
+  previewUrl: (id: string, token?: string) => {
+    const baseUrl = `${import.meta.env.VITE_API_URL || ''}/api/files/${id}/preview`;
+    return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+  },
   downloadUrl: (id: string) =>
     `${import.meta.env.VITE_API_URL || ''}/api/files/${id}/download`,
 
@@ -454,6 +458,7 @@ export const searchApi = {
   query: (params: {
     query?: string;
     parentId?: string;
+    recursive?: boolean;
     tags?: string[];
     mimeType?: string;
     minSize?: number;

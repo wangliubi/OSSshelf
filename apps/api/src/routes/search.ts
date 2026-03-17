@@ -12,6 +12,7 @@ app.use('*', authMiddleware);
 const searchSchema = z.object({
   query: z.string().min(1).optional(),
   parentId: z.string().nullable().optional(),
+  recursive: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
   mimeType: z.string().optional(),
   minSize: z.number().int().min(0).optional(),
@@ -48,6 +49,7 @@ app.get('/', async (c) => {
   const params = {
     query: query.query,
     parentId: query.parentId,
+    recursive: query.recursive === 'true',
     tags: query.tags ? query.tags.split(',').filter(Boolean) : undefined,
     mimeType: query.mimeType,
     minSize: query.minSize ? parseInt(query.minSize, 10) : undefined,
@@ -72,10 +74,44 @@ app.get('/', async (c) => {
   const searchParams = result.data;
   const db = getDb(c.env.DB);
 
+  async function getAllDescendantFolderIds(parentFolderId: string): Promise<Set<string>> {
+    const folderIds = new Set<string>([parentFolderId]);
+    const queue = [parentFolderId];
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const childFolders = await db.select({ id: files.id })
+        .from(files)
+        .where(and(
+          eq(files.parentId, currentId),
+          eq(files.isFolder, true),
+          isNull(files.deletedAt)
+        ))
+        .all();
+      
+      for (const folder of childFolders) {
+        if (!folderIds.has(folder.id)) {
+          folderIds.add(folder.id);
+          queue.push(folder.id);
+        }
+      }
+    }
+    
+    return folderIds;
+  }
+
   const conditions: SQL[] = [eq(files.userId, userId), isNull(files.deletedAt)];
 
   if (searchParams.parentId !== undefined) {
-    conditions.push(searchParams.parentId ? eq(files.parentId, searchParams.parentId) : isNull(files.parentId));
+    if (searchParams.parentId && searchParams.recursive) {
+      const folderIds = await getAllDescendantFolderIds(searchParams.parentId);
+      const folderIdArray = Array.from(folderIds);
+      if (folderIdArray.length > 0) {
+        conditions.push(inArray(files.parentId, folderIdArray));
+      }
+    } else {
+      conditions.push(searchParams.parentId ? eq(files.parentId, searchParams.parentId) : isNull(files.parentId));
+    }
   }
 
   if (searchParams.query) {

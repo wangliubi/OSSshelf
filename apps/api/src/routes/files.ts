@@ -21,6 +21,10 @@ const updateFileSchema = z.object({
   parentId: z.string().nullable().optional(),
 });
 
+const updateFolderSettingsSchema = z.object({
+  allowedMimeTypes: z.array(z.string()).nullable().optional(),
+});
+
 const moveFileSchema = z.object({
   targetParentId: z.string().nullable(),
 });
@@ -44,6 +48,36 @@ app.post('/upload', async (c) => {
   if (uploadFile.size > MAX_FILE_SIZE) return c.json({ success: false, error: { code: ERROR_CODES.FILE_TOO_LARGE, message: `文件大小超过限制（最大 ${MAX_FILE_SIZE / 1024 / 1024 / 1024}GB）` } }, 400);
 
   const db = getDb(c.env.DB);
+  
+  if (parentId) {
+    const parentFolder = await db.select().from(files).where(and(eq(files.id, parentId), eq(files.isFolder, true))).get();
+    if (parentFolder && parentFolder.allowedMimeTypes) {
+      try {
+        const allowedTypes: string[] = JSON.parse(parentFolder.allowedMimeTypes);
+        if (allowedTypes.length > 0) {
+          const fileMime = uploadFile.type || 'application/octet-stream';
+          const isAllowed = allowedTypes.some(allowed => {
+            if (allowed.endsWith('/*')) {
+              return fileMime.startsWith(allowed.slice(0, -1));
+            }
+            return fileMime === allowed;
+          });
+          if (!isAllowed) {
+            return c.json({ 
+              success: false, 
+              error: { 
+                code: ERROR_CODES.VALIDATION_ERROR, 
+                message: `此文件夹仅允许上传以下类型的文件: ${allowedTypes.join(', ')}` 
+              } 
+            }, 400);
+          }
+        }
+      } catch {
+        // JSON解析失败，忽略限制
+      }
+    }
+  }
+  
   const encKey = c.env.JWT_SECRET || 'ossshelf-key';
   const bucketConfig = await resolveBucketConfig(db, userId, encKey, requestedBucketId, parentId);
 
@@ -233,6 +267,36 @@ app.put('/:id', async (c) => {
   if (parentId !== undefined) { updateData.parentId = parentId || null; const n = (name as string | undefined) || file.name; updateData.path = parentId ? `${parentId}/${n}` : `/${n}`; }
   await db.update(files).set(updateData).where(eq(files.id, fileId));
   return c.json({ success: true, data: { message: '更新成功' } });
+});
+
+// ── Update folder settings (upload type control) ───────────────────────────
+app.put('/:id/settings', async (c) => {
+  const userId = c.get('userId')!;
+  const fileId = c.req.param('id');
+  const body = await c.req.json();
+  const result = updateFolderSettingsSchema.safeParse(body);
+  if (!result.success) return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: result.error.errors[0].message } }, 400);
+  
+  const db = getDb(c.env.DB);
+  const file = await db.select().from(files).where(and(eq(files.id, fileId), eq(files.userId, userId))).get();
+  if (!file) return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
+  if (!file.isFolder) return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '只有文件夹可以设置上传类型限制' } }, 400);
+  
+  const { allowedMimeTypes } = result.data;
+  const now = new Date().toISOString();
+  
+  await db.update(files).set({
+    allowedMimeTypes: allowedMimeTypes ? JSON.stringify(allowedMimeTypes) : null,
+    updatedAt: now,
+  }).where(eq(files.id, fileId));
+  
+  return c.json({ 
+    success: true, 
+    data: { 
+      message: '设置已更新',
+      allowedMimeTypes: allowedMimeTypes || null 
+    } 
+  });
 });
 
 // ── Move ───────────────────────────────────────────────────────────────────

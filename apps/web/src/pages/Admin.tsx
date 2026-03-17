@@ -546,15 +546,45 @@ function AuditLogTab() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
 
+  const ACTION_OPTIONS = [
+    { value: '', label: '全部操作' },
+    { value: 'user.login', label: '登录' },
+    { value: 'user.logout', label: '登出' },
+    { value: 'user.register', label: '注册' },
+    { value: 'file.upload', label: '文件上传' },
+    { value: 'file.download', label: '文件下载' },
+    { value: 'file.delete', label: '文件删除' },
+    { value: 'file.move', label: '文件移动' },
+    { value: 'file.rename', label: '文件重命名' },
+    { value: 'folder.create', label: '创建文件夹' },
+    { value: 'share.create', label: '创建分享' },
+    { value: 'share.access', label: '访问分享' },
+    { value: 'bucket.create', label: '创建存储桶' },
+    { value: 'bucket.update', label: '更新存储桶' },
+    { value: 'bucket.delete', label: '删除存储桶' },
+    { value: 'admin.user_update', label: '管理用户' },
+    { value: 'admin.config_change', label: '配置变更' },
+  ];
+
   const ACTION_LABELS: Record<string, { label: string; color: string }> = {
-    login: { label: '登录', color: 'bg-blue-500/10 text-blue-500' },
-    logout: { label: '登出', color: 'bg-gray-500/10 text-gray-500' },
-    file_upload: { label: '上传', color: 'bg-emerald-500/10 text-emerald-500' },
-    file_download: { label: '下载', color: 'bg-cyan-500/10 text-cyan-500' },
-    file_delete: { label: '删除', color: 'bg-red-500/10 text-red-500' },
-    file_share: { label: '分享', color: 'bg-purple-500/10 text-purple-500' },
-    user_create: { label: '创建用户', color: 'bg-amber-500/10 text-amber-500' },
-    user_update: { label: '更新用户', color: 'bg-indigo-500/10 text-indigo-500' },
+    'user.login': { label: '登录', color: 'bg-blue-500/10 text-blue-500' },
+    'user.logout': { label: '登出', color: 'bg-gray-500/10 text-gray-500' },
+    'user.register': { label: '注册', color: 'bg-green-500/10 text-green-500' },
+    'user.update': { label: '更新用户', color: 'bg-indigo-500/10 text-indigo-500' },
+    'user.delete': { label: '删除用户', color: 'bg-red-500/10 text-red-500' },
+    'file.upload': { label: '上传', color: 'bg-emerald-500/10 text-emerald-500' },
+    'file.download': { label: '下载', color: 'bg-cyan-500/10 text-cyan-500' },
+    'file.delete': { label: '删除', color: 'bg-red-500/10 text-red-500' },
+    'file.move': { label: '移动', color: 'bg-amber-500/10 text-amber-500' },
+    'file.rename': { label: '重命名', color: 'bg-purple-500/10 text-purple-500' },
+    'folder.create': { label: '创建文件夹', color: 'bg-yellow-500/10 text-yellow-500' },
+    'share.create': { label: '创建分享', color: 'bg-pink-500/10 text-pink-500' },
+    'share.access': { label: '访问分享', color: 'bg-violet-500/10 text-violet-500' },
+    'bucket.create': { label: '创建存储桶', color: 'bg-teal-500/10 text-teal-500' },
+    'bucket.update': { label: '更新存储桶', color: 'bg-sky-500/10 text-sky-500' },
+    'bucket.delete': { label: '删除存储桶', color: 'bg-rose-500/10 text-rose-500' },
+    'admin.user_update': { label: '管理用户', color: 'bg-orange-500/10 text-orange-500' },
+    'admin.config_change': { label: '配置变更', color: 'bg-slate-500/10 text-slate-500' },
   };
 
   return (
@@ -575,13 +605,9 @@ function AuditLogTab() {
             onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
             className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
           >
-            <option value="">全部操作</option>
-            <option value="login">登录</option>
-            <option value="logout">登出</option>
-            <option value="file_upload">文件上传</option>
-            <option value="file_download">文件下载</option>
-            <option value="file_delete">文件删除</option>
-            <option value="file_share">文件分享</option>
+            {ACTION_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
         </div>
       </CardHeader>
