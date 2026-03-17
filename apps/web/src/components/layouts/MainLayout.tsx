@@ -12,6 +12,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth';
 import { useFileStore } from '@/stores/files';
+import { useThemeStore } from '@/stores/theme';
 import { Button } from '@/components/ui/button';
 import { StorageBar } from '@/components/ui/StorageBar';
 import { Toaster } from '@/components/ui/toaster';
@@ -23,6 +24,7 @@ import {
   LayoutDashboard, FolderOpen, Share2, Settings, LogOut,
   Menu, X, HardDrive, Trash2, Database, Shield,
   ChevronLeft, ChevronRight, Keyboard, Upload, Download,
+  Sun, Moon, Monitor,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/utils';
@@ -45,6 +47,7 @@ export default function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const { theme, setTheme } = useThemeStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -52,6 +55,30 @@ export default function MainLayout() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const navItems = user?.role === 'admin' ? [...baseNavItems, adminNavItem] : baseNavItems;
+
+  const cycleTheme = () => {
+    const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
+    const currentTheme = theme || 'system';
+    const currentIndex = themes.indexOf(currentTheme);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    const nextTheme = themes[nextIndex];
+    if (nextTheme) {
+      setTheme(nextTheme);
+    }
+  };
+
+  const getThemeIcon = () => {
+    switch (theme) {
+      case 'light':
+        return Sun;
+      case 'dark':
+        return Moon;
+      default:
+        return Monitor;
+    }
+  };
+
+  const ThemeIcon = getThemeIcon();
 
   const { data: trashItems = [] } = useQuery({
     queryKey: ['trash'],
@@ -117,6 +144,15 @@ export default function MainLayout() {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={cycleTheme}
+            title={`当前主题: ${theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '跟随系统'}`}
+          >
+            <ThemeIcon className="h-4 w-4" />
+          </Button>
           {location.pathname.startsWith('/files') && (
             <>
               <Button
@@ -248,10 +284,35 @@ export default function MainLayout() {
                 variant="ghost"
                 size="sm"
                 className="flex-1"
+                onClick={cycleTheme}
+                title={`当前主题: ${theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '跟随系统'}`}
+              >
+                <ThemeIcon className="h-3.5 w-3.5 mr-1.5" />
+                {theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '系统'}
+              </Button>
+            )}
+            
+            {(!isCollapsed || isHovering) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1"
                 onClick={() => setShowShortcuts(true)}
               >
                 <Keyboard className="h-3.5 w-3.5 mr-1.5" />
                 快捷键
+              </Button>
+            )}
+            
+            {(isCollapsed && !isHovering) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-full px-2"
+                onClick={cycleTheme}
+                title={`当前主题: ${theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '跟随系统'}`}
+              >
+                <ThemeIcon className="h-4 w-4" />
               </Button>
             )}
             

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import './index.css';
+import { useThemeStore } from './stores/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,6 +14,25 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const savedTheme = localStorage.getItem('ossshelf-theme');
+if (savedTheme) {
+  try {
+    const parsed = JSON.parse(savedTheme);
+    const theme = parsed?.state?.theme || 'system';
+    const root = document.documentElement;
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const effectiveTheme = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+    
+    if (effectiveTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  } catch {
+    // ignore
+  }
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
