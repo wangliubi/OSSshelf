@@ -43,9 +43,10 @@ const NAV_ITEMS = [
 interface MobileBottomNavProps {
   onUpload?: () => void;
   onNewFolder?: () => void;
+  onNavigate?: (e: React.MouseEvent, path: string) => void;
 }
 
-export function MobileBottomNav({ onUpload, onNewFolder }: MobileBottomNavProps) {
+export function MobileBottomNav({ onUpload, onNewFolder, onNavigate }: MobileBottomNavProps) {
   const location = useLocation();
   const [showQuickActions, setShowQuickActions] = useState(false);
   const { selectedFiles } = useFileStore();
@@ -76,6 +77,7 @@ export function MobileBottomNav({ onUpload, onNewFolder }: MobileBottomNavProps)
               <NavLink
                 key={item.path}
                 to={item.path}
+                onClick={(e) => onNavigate?.(e, item.path)}
                 className={cn(
                   'flex flex-col items-center justify-center flex-1 h-full relative',
                   active ? 'text-primary' : 'text-muted-foreground'

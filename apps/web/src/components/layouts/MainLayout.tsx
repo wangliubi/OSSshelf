@@ -9,7 +9,7 @@
  * - 快捷键支持
  */
 
-import { Outlet, Link, useLocation, useNavigate, useBlocker } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth';
 import { useFileStore } from '@/stores/files';
 import { useThemeStore } from '@/stores/theme';
@@ -81,43 +81,48 @@ export default function MainLayout() {
 
   const navItems = user?.role === 'admin' ? [...baseNavItems, adminNavItem] : baseNavItems;
 
-  // 使用 useBlocker 阻止导航
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => {
-      // 如果位置相同，不阻止
-      if (currentLocation.pathname === nextLocation.pathname) return false;
-      // 检查是否有活跃的上传任务
+  // 处理页面刷新/关闭时的提示
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       const uploadsInfo = uploadManager.getActiveUploadsInfo();
-      return uploadsInfo.count > 0;
-    }
+      if (uploadsInfo.count > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // 处理内部导航的确认
+  const handleNavigationClick = useCallback(
+    (e: React.MouseEvent, path: string) => {
+      const uploadsInfo = uploadManager.getActiveUploadsInfo();
+      if (uploadsInfo.count > 0 && location.pathname !== path) {
+        e.preventDefault();
+        setUploadLeaveInfo({
+          hasActiveUploads: uploadsInfo.count > 0,
+          hasLargeFiles: uploadsInfo.hasLargeFiles,
+          largeFileNames: uploadsInfo.largeFileNames,
+        });
+        setPendingNavigation(path);
+      }
+    },
+    [location.pathname]
   );
 
-  // 当 blocker 被触发时，显示确认对话框
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      const uploadsInfo = uploadManager.getActiveUploadsInfo();
-      setUploadLeaveInfo({
-        hasActiveUploads: uploadsInfo.count > 0,
-        hasLargeFiles: uploadsInfo.hasLargeFiles,
-        largeFileNames: uploadsInfo.largeFileNames,
-      });
-      setPendingNavigation(blocker.location.pathname);
-    } else {
-      setUploadLeaveInfo(null);
-      setPendingNavigation(null);
-    }
-  }, [blocker.state, blocker.location]);
-
   const handleConfirmLeave = () => {
+    if (pendingNavigation) {
+      navigate(pendingNavigation);
+    }
     setUploadLeaveInfo(null);
     setPendingNavigation(null);
-    blocker.proceed?.();
   };
 
   const handleCancelLeave = () => {
     setUploadLeaveInfo(null);
     setPendingNavigation(null);
-    blocker.reset?.();
   };
 
   const cycleTheme = () => {
@@ -290,6 +295,7 @@ export default function MainLayout() {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={(e) => handleNavigationClick(e, item.path)}
                 className={cn(
                   'flex items-center gap-3 rounded-lg transition-colors text-sm',
                   showLabel ? 'px-3 py-2.5' : 'px-2 py-2.5 justify-center',
@@ -409,6 +415,7 @@ export default function MainLayout() {
             console.log('New folder');
           }
         }}
+        onNavigate={handleNavigationClick}
       />
 
       <PWAPrompt />
