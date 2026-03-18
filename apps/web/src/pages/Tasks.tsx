@@ -9,7 +9,7 @@
  * - 历史记录折叠
  */
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '@/services/api';
 import { presignUpload } from '@/services/presignUpload';
@@ -106,22 +106,19 @@ export default function Tasks() {
   });
 
   // 初始化展开状态
-  const taskGroups = useMemo(() => {
-    const groups = groupTasksByDate(tasks);
-    // 设置默认展开状态
+  const taskGroups = useMemo(() => groupTasksByDate(tasks), [tasks]);
+
+  // 设置默认展开状态 - 只在首次渲染时执行
+  useEffect(() => {
     const defaultExpanded = new Set<string>();
-    groups.forEach((g) => {
+    taskGroups.forEach((g) => {
       if (g.defaultExpanded) {
         defaultExpanded.add(g.label);
       }
     });
-    setExpandedGroups((prev) => {
-      const newSet = new Set(prev);
-      defaultExpanded.forEach((label) => newSet.add(label));
-      return newSet;
-    });
-    return groups;
-  }, [tasks]);
+    setExpandedGroups(defaultExpanded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeTasks = tasks.filter((t) => 
     ['uploading', 'pending', 'paused'].includes(t.status)
