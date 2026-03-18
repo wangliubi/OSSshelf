@@ -186,45 +186,57 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto flex items-center justify-center min-h-0">
+        <div className="flex-1 overflow-auto min-h-0">
           {loadError ? (
-            <div className="text-center py-12 text-muted-foreground px-6">
-              <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>预览加载失败</p>
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center py-12 text-muted-foreground px-6">
+                <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p>预览加载失败</p>
+              </div>
             </div>
           ) : !canPreview ? (
-            <div className="text-center py-12 px-6 space-y-4">
-              <FileIcon mimeType={file.mimeType} size="lg" className="mx-auto" />
-              <div>
-                <p className="font-medium">{file.name}</p>
-                <p className="text-sm text-muted-foreground mt-1">{formatBytes(file.size)}</p>
-                <p className="text-sm text-muted-foreground">{file.mimeType || '未知类型'}</p>
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center py-12 px-6 space-y-4">
+                <FileIcon mimeType={file.mimeType} size="lg" className="mx-auto" />
+                <div>
+                  <p className="font-medium">{file.name}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{formatBytes(file.size)}</p>
+                  <p className="text-sm text-muted-foreground">{file.mimeType || '未知类型'}</p>
+                </div>
+                <Button onClick={() => onDownload(file)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  下载文件
+                </Button>
               </div>
-              <Button onClick={() => onDownload(file)}>
-                <Download className="h-4 w-4 mr-2" />
-                下载文件
-              </Button>
             </div>
           ) : !resolvedUrl ? (
-            <div className="text-muted-foreground text-sm py-12">加载中...</div>
+            <div className="flex items-center justify-center h-full">
+              <div className="text-muted-foreground text-sm py-12">加载中...</div>
+            </div>
           ) : isImage ? (
-            <img
-              src={resolvedUrl}
-              alt={file.name}
-              className="max-w-full max-h-full object-contain"
-              onError={() => setLoadError(true)}
-            />
+            <div className="flex items-center justify-center h-full">
+              <img
+                src={resolvedUrl}
+                alt={file.name}
+                className="max-w-full max-h-full object-contain"
+                onError={() => setLoadError(true)}
+              />
+            </div>
           ) : isVideo ? (
-            <video src={resolvedUrl} controls className="max-w-full max-h-full" onError={() => setLoadError(true)} />
+            <div className="flex items-center justify-center h-full">
+              <video src={resolvedUrl} controls className="max-w-full max-h-full" onError={() => setLoadError(true)} />
+            </div>
           ) : isAudio ? (
-            <div className="p-8 w-full space-y-4">
-              <div className="flex items-center justify-center">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Volume2 className="h-10 w-10 text-primary" />
+            <div className="flex items-center justify-center h-full">
+              <div className="p-8 w-full max-w-md space-y-4">
+                <div className="flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Volume2 className="h-10 w-10 text-primary" />
+                  </div>
                 </div>
+                <p className="text-center font-medium">{file.name}</p>
+                <audio src={resolvedUrl} controls className="w-full" onError={() => setLoadError(true)} />
               </div>
-              <p className="text-center font-medium">{file.name}</p>
-              <audio src={resolvedUrl} controls className="w-full" onError={() => setLoadError(true)} />
             </div>
           ) : isPdf ? (
             <iframe
@@ -245,30 +257,34 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
                   {textContent}
                 </pre>
               ) : (
-                <p className="text-center text-muted-foreground text-sm py-8">加载中...</p>
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-center text-muted-foreground text-sm py-8">加载中...</p>
+                </div>
               )}
             </div>
           ) : isOffice && officeContent ? (
-            <div className="w-full h-full flex flex-col items-center justify-center p-8 space-y-4">
-              <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center">
-                {getOfficeIcon()}
+            <div className="flex items-center justify-center h-full">
+              <div className="w-full max-w-md flex flex-col items-center justify-center p-8 space-y-4">
+                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center">
+                  {getOfficeIcon()}
+                </div>
+                <div className="text-center">
+                  <p className="font-medium">{file.name}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {file.mimeType?.includes('word')
+                      ? 'Word 文档'
+                      : file.mimeType?.includes('excel')
+                        ? 'Excel 表格'
+                        : file.mimeType?.includes('powerpoint')
+                          ? 'PowerPoint 演示文稿'
+                          : 'Office 文档'}
+                  </p>
+                </div>
+                <Button onClick={() => onDownload(file)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  下载查看
+                </Button>
               </div>
-              <div className="text-center">
-                <p className="font-medium">{file.name}</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {file.mimeType?.includes('word')
-                    ? 'Word 文档'
-                    : file.mimeType?.includes('excel')
-                      ? 'Excel 表格'
-                      : file.mimeType?.includes('powerpoint')
-                        ? 'PowerPoint 演示文稿'
-                        : 'Office 文档'}
-                </p>
-              </div>
-              <Button onClick={() => onDownload(file)}>
-                <Download className="h-4 w-4 mr-2" />
-                下载查看
-              </Button>
             </div>
           ) : null}
         </div>
