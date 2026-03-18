@@ -236,6 +236,40 @@ app.delete('/clear', async (c) => {
   return c.json({ success: true, data: { message: '已清空历史任务记录' } });
 });
 
+app.delete('/clear-completed', async (c) => {
+  const userId = c.get('userId')!;
+  const db = getDb(c.env.DB);
+
+  // 只删除已完成的任务
+  await db
+    .delete(uploadTasks)
+    .where(
+      and(
+        eq(uploadTasks.userId, userId),
+        eq(uploadTasks.status, 'completed')
+      )
+    );
+
+  return c.json({ success: true, data: { message: '已清空已完成的任务' } });
+});
+
+app.delete('/clear-failed', async (c) => {
+  const userId = c.get('userId')!;
+  const db = getDb(c.env.DB);
+
+  // 只删除失败、过期、取消的任务
+  await db
+    .delete(uploadTasks)
+    .where(
+      and(
+        eq(uploadTasks.userId, userId),
+        inArray(uploadTasks.status, ['failed', 'expired', 'aborted'])
+      )
+    );
+
+  return c.json({ success: true, data: { message: '已清空失败/过期/取消的任务' } });
+});
+
 app.delete('/clear-all', async (c) => {
   const userId = c.get('userId')!;
   const db = getDb(c.env.DB);

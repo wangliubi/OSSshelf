@@ -64,13 +64,16 @@ function groupTasksByDate(tasks: UploadTask[]): TaskGroup[] {
 
   const groups: TaskGroup[] = [
     { label: '今天', tasks: [], defaultExpanded: true },
-    { label: '昨天', tasks: [], defaultExpanded: true },
-    { label: '最近7天', tasks: [], defaultExpanded: true },
+    { label: '昨天', tasks: [], defaultExpanded: false },
+    { label: '最近7天', tasks: [], defaultExpanded: false },
     { label: '最近30天', tasks: [], defaultExpanded: false },
     { label: '更早', tasks: [], defaultExpanded: false },
   ];
 
-  for (const task of tasks) {
+  // 按时间倒序排列
+  const sortedTasks = [...tasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  for (const task of sortedTasks) {
     const taskDate = new Date(task.createdAt);
     if (taskDate >= today) {
       groups[0]!.tasks.push(task);
@@ -126,6 +129,11 @@ export default function Tasks() {
   const historyTasks = tasks.filter((t) => 
     ['completed', 'failed', 'expired', 'aborted'].includes(t.status)
   );
+  const completedTasks = tasks.filter((t) => t.status === 'completed');
+  const failedTasks = tasks.filter((t) => ['failed', 'expired', 'aborted'].includes(t.status));
+
+  // 只对历史任务按日期分组
+  const historyTaskGroups = useMemo(() => groupTasksByDate(historyTasks), [historyTasks]);
 
   const abortMutation = useMutation({
     mutationFn: (taskId: string) => tasksApi.abort(taskId),
@@ -155,10 +163,10 @@ export default function Tasks() {
       }),
   });
 
-  const clearMutation = useMutation({
-    mutationFn: () => tasksApi.clear(),
+  const clearCompletedMutation = useMutation({
+    mutationFn: () => tasksApi.clearCompleted(),
     onSuccess: () => {
-      toast({ title: '已清空历史任务记录' });
+      toast({ title: '已清空已完成的任务' });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (e: any) =>
@@ -169,10 +177,10 @@ export default function Tasks() {
       }),
   });
 
-  const clearAllMutation = useMutation({
-    mutationFn: () => tasksApi.clearAll(),
+  const clearFailedMutation = useMutation({
+    mutationFn: () => tasksApi.clearFailed(),
     onSuccess: () => {
-      toast({ title: '已清空所有任务记录' });
+      toast({ title: '已清空失败/过期/取消的任务' });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (e: any) =>
@@ -299,16 +307,16 @@ export default function Tasks() {
           <p className="text-muted-foreground text-sm mt-0.5">管理文件上传任务</p>
         </div>
         <div className="flex items-center gap-2">
-          {historyTasks.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => clearMutation.mutate()}>
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              清空历史
+          {completedTasks.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => clearCompletedMutation.mutate()}>
+              <CheckCircle2 className="h-4 w-4 mr-1.5" />
+              清空已完成
             </Button>
           )}
-          {tasks.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => clearAllMutation.mutate()}>
-              <Ban className="h-4 w-4 mr-1.5" />
-              清空全部
+          {failedTasks.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => clearFailedMutation.mutate()}>
+              <XCircle className="h-4 w-4 mr-1.5" />
+              清空失败
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -370,7 +378,7 @@ export default function Tasks() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {taskGroups.map((group) => (
+                  {historyTaskGroups.map((group) => (
                     <div key={group.label}>
                       <button
                         onClick={() => toggleGroup(group.label)}

@@ -393,6 +393,8 @@ export const tasksApi = {
   list: () => api.get<ApiResponse<UploadTask[]>>('/api/tasks/list'),
   delete: (taskId: string) => api.delete<ApiResponse<{ message: string }>>(`/api/tasks/${taskId}`),
   clear: () => api.delete<ApiResponse<{ message: string }>>('/api/tasks/clear'),
+  clearCompleted: () => api.delete<ApiResponse<{ message: string }>>('/api/tasks/clear-completed'),
+  clearFailed: () => api.delete<ApiResponse<{ message: string }>>('/api/tasks/clear-failed'),
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/api/tasks/clear-all'),
 };
 
