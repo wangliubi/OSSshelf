@@ -348,6 +348,43 @@ app.delete('/clear-all', async (c) => {
   return c.json({ success: true, data: { message: '已清空所有任务记录' } });
 });
 
+app.post('/start', async (c) => {
+  const userId = c.get('userId')!;
+  const body = await c.req.json();
+  const taskId = body.taskId as string;
+
+  if (!taskId) {
+    return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '缺少任务ID' } }, 400);
+  }
+
+  const db = getDb(c.env.DB);
+
+  const task = await db
+    .select()
+    .from(uploadTasks)
+    .where(and(eq(uploadTasks.id, taskId), eq(uploadTasks.userId, userId)))
+    .get();
+
+  if (!task) {
+    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '任务不存在' } }, 404);
+  }
+
+  if (task.status !== 'pending') {
+    return c.json({ success: true, data: { message: '任务已开始', status: task.status } });
+  }
+
+  if (new Date(task.expiresAt) < new Date()) {
+    return c.json({ success: false, error: { code: ERROR_CODES.TASK_EXPIRED, message: '上传任务已过期' } }, 410);
+  }
+
+  await db
+    .update(uploadTasks)
+    .set({ status: 'uploading', updatedAt: new Date().toISOString() })
+    .where(eq(uploadTasks.id, taskId));
+
+  return c.json({ success: true, data: { message: '任务已开始', status: 'uploading' } });
+});
+
 app.post('/part', async (c) => {
   const userId = c.get('userId')!;
   const body = await c.req.json();

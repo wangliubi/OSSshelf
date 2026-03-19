@@ -139,7 +139,6 @@ async function singlePresignUpload(
 ): Promise<UploadedFile> {
   if (signal?.aborted) throw new DOMException('Upload aborted', 'AbortError');
 
-  // 通过 tasks/create 创建任务并获取预签名 PUT URL（小文件路径）
   const init = await apiPost<{
     taskId: string;
     fileId: string;
@@ -168,6 +167,8 @@ async function singlePresignUpload(
     throw new Error('预签名上传：服务器未返回上传 URL');
   }
 
+  await apiPost('/api/tasks/start', { taskId }).catch(() => {});
+
   try {
     await directPut(uploadUrl, file, file.type || 'application/octet-stream', onProgress, signal);
   } catch (error) {
@@ -181,7 +182,6 @@ async function singlePresignUpload(
     throw error;
   }
 
-  // 通知服务端完成，入库
   const result = await apiPost<UploadedFile>('/api/tasks/complete', {
     taskId,
     parts: [{ partNumber: 1, etag: 'direct' }],

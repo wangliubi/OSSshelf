@@ -430,6 +430,7 @@ function TaskItem({
   onResumeUpload?: () => void;
 }) {
   const status = STATUS_CONFIG[task.status] ?? DEFAULT_STATUS;
+  const isSmallFileUploading = task.status === 'uploading' && task.totalParts === 1 && task.uploadedParts.length === 0;
   const progress = task.totalParts > 0 ? Math.round((task.uploadedParts.length / task.totalParts) * 100) : 0;
   const StatusIcon = status.icon;
 
@@ -481,12 +482,18 @@ function TaskItem({
         {(task.status === 'uploading' || task.status === 'pending' || task.status === 'paused') && (
           <div className="mt-2">
             <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-              <div
-                className={cn('h-full transition-all', task.status === 'paused' ? 'bg-orange-500' : 'bg-primary')}
-                style={{ width: `${progress}%` }}
-              />
+              {isSmallFileUploading ? (
+                <div className="h-full bg-primary animate-pulse" style={{ width: '100%' }} />
+              ) : (
+                <div
+                  className={cn('h-full transition-all', task.status === 'paused' ? 'bg-orange-500' : 'bg-primary')}
+                  style={{ width: `${progress}%` }}
+                />
+              )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{progress}%</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {isSmallFileUploading ? '上传中...' : `${progress}%`}
+            </p>
           </div>
         )}
         {task.errorMessage && <p className="text-xs text-red-500 mt-1">{task.errorMessage}</p>}
