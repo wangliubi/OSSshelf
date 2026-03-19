@@ -77,7 +77,7 @@ export const authApi = {
   getRegistrationConfig: () =>
     api.get<ApiResponse<{ open: boolean; requireInviteCode: boolean }>>('/api/auth/registration-config'),
   devices: () => api.get<ApiResponse<UserDevice[]>>('/api/auth/devices'),
-  deleteDevice: (deviceId: string) => api.delete<ApiResponse<{ message: string }>>(`/api/auth/devices/${deviceId}`),
+  deleteDevice: (deviceId: string) => api.delete<ApiResponse<{ message: string }>>(`/api/auth/devices/${encodeURIComponent(deviceId)}`),
 };
 
 export interface BucketStats {
