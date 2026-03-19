@@ -84,10 +84,16 @@ app.get('/users', async (c) => {
   const db = getDb(c.env.DB);
   const allUsers = await db.select().from(users).all();
 
-  // Attach bucket count per user (fast: single query per user is fine for admin view)
   const enriched = await Promise.all(
     allUsers.map(async (u) => {
-      const buckets = await db.select().from(storageBuckets).where(eq(storageBuckets.userId, u.id)).all();
+      const buckets = await db
+        .select()
+        .from(storageBuckets)
+        .where(and(eq(storageBuckets.userId, u.id), eq(storageBuckets.isActive, true)))
+        .all();
+      const bucketStorageUsed = buckets.reduce((sum, b) => sum + (b.storageUsed ?? 0), 0);
+      const actualStorageUsed = Math.max(u.storageUsed ?? 0, bucketStorageUsed);
+
       const fileCount = await db
         .select({ id: files.id })
         .from(files)
@@ -99,7 +105,7 @@ app.get('/users', async (c) => {
         name: u.name,
         role: u.role,
         storageQuota: u.storageQuota,
-        storageUsed: u.storageUsed,
+        storageUsed: actualStorageUsed,
         fileCount: fileCount.length,
         bucketCount: buckets.length,
         createdAt: u.createdAt,

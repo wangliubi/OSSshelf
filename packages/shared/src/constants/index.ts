@@ -94,7 +94,7 @@ export function isPreviewableMimeType(mimeType: string | null | undefined): bool
   if (mimeType.startsWith('text/')) return true;
   if (mimeType === 'application/json') return true;
   if (mimeType === 'application/xml') return true;
-  if (OFFICE_MIME_TYPES.includes(mimeType as typeof OFFICE_MIME_TYPES[number])) return true;
+  if (OFFICE_MIME_TYPES.includes(mimeType as (typeof OFFICE_MIME_TYPES)[number])) return true;
 
   return false;
 }

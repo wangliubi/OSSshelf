@@ -19,6 +19,7 @@ import {
   UPLOAD_TASK_EXPIRY,
   MULTIPART_THRESHOLD,
   UPLOAD_CHUNK_SIZE,
+  inferMimeType,
 } from '@osshelf/shared';
 import { getEncryptionKey } from '../lib/crypto';
 import type { Env, Variables } from '../types/env';
@@ -93,9 +94,11 @@ app.post('/create', async (c) => {
     );
   }
 
-  const { fileName, fileSize, mimeType, parentId, bucketId: requestedBucketId } = result.data;
+  const { fileName, fileSize, mimeType: providedMimeType, parentId, bucketId: requestedBucketId } = result.data;
   const db = getDb(c.env.DB);
   const encKey = getEncryptionKey(c.env);
+
+  const mimeType = inferMimeType(fileName, providedMimeType);
 
   const mimeCheck = await checkFolderMimeTypeRestriction(db, parentId, mimeType);
   if (!mimeCheck.allowed) {
@@ -134,8 +137,7 @@ app.post('/create', async (c) => {
   const isSmallFile = fileSize <= MULTIPART_THRESHOLD;
 
   if (isSmallFile) {
-    // 小文件：生成预签名 PUT URL，不创建 multipart session
-    const uploadUrl = await s3PresignUrl(bucketConfig, 'PUT', r2Key, UPLOAD_EXPIRY, mimeType || 'application/octet-stream');
+    const uploadUrl = await s3PresignUrl(bucketConfig, 'PUT', r2Key, UPLOAD_EXPIRY, mimeType);
 
     await db.insert(uploadTasks).values({
       id: taskId,
@@ -172,9 +174,8 @@ app.post('/create', async (c) => {
     });
   }
 
-  // 大文件：创建 multipart upload
   const totalParts = Math.ceil(fileSize / UPLOAD_CHUNK_SIZE);
-  const uploadId = await s3CreateMultipartUpload(bucketConfig, r2Key, mimeType || 'application/octet-stream');
+  const uploadId = await s3CreateMultipartUpload(bucketConfig, r2Key, mimeType);
 
   await db.insert(uploadTasks).values({
     id: taskId,

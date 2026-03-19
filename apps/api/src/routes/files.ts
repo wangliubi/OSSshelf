@@ -14,7 +14,7 @@ import { eq, and, isNull, isNotNull, like, or, inArray, sql } from 'drizzle-orm'
 import { getDb, files, users, storageBuckets, filePermissions } from '../db';
 import { checkFilePermission } from './permissions';
 import { authMiddleware } from '../middleware/auth';
-import { ERROR_CODES, MAX_FILE_SIZE, isPreviewableMimeType } from '@osshelf/shared';
+import { ERROR_CODES, MAX_FILE_SIZE, isPreviewableMimeType, inferMimeType } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 import { s3Put, s3Get, s3Delete } from '../lib/s3client';
@@ -142,7 +142,7 @@ app.post('/upload', async (c) => {
 
   const db = getDb(c.env.DB);
 
-  const fileMime = uploadFile.type || 'application/octet-stream';
+  const fileMime = inferMimeType(uploadFile.name, uploadFile.type);
   const mimeCheck = await checkFolderMimeTypeRestriction(db, parentId, fileMime);
   if (!mimeCheck.allowed) {
     return c.json(
@@ -176,13 +176,13 @@ app.post('/upload', async (c) => {
   const path = parentId ? `${parentId}/${uploadFile.name}` : `/${uploadFile.name}`;
 
   if (bucketConfig) {
-    await s3Put(bucketConfig, r2Key, await uploadFile.arrayBuffer(), uploadFile.type || 'application/octet-stream', {
+    await s3Put(bucketConfig, r2Key, await uploadFile.arrayBuffer(), fileMime, {
       userId,
       originalName: uploadFile.name,
     });
   } else if (c.env.FILES) {
     await c.env.FILES.put(r2Key, uploadFile.stream(), {
-      httpMetadata: { contentType: uploadFile.type },
+      httpMetadata: { contentType: fileMime },
       customMetadata: { userId, originalName: uploadFile.name },
     });
   } else {
@@ -204,7 +204,7 @@ app.post('/upload', async (c) => {
     type: 'file',
     size: uploadFile.size,
     r2Key,
-    mimeType: uploadFile.type || null,
+    mimeType: fileMime || null,
     hash: null,
     isFolder: false,
     bucketId: bucketConfig?.id ?? null,
@@ -229,7 +229,7 @@ app.post('/upload', async (c) => {
       id: fileId,
       name: uploadFile.name,
       size: uploadFile.size,
-      mimeType: uploadFile.type,
+      mimeType: fileMime,
       path,
       bucketId: bucketConfig?.id ?? null,
       createdAt: now,

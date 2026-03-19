@@ -19,6 +19,7 @@ export type FileCategory =
   | 'presentation'
   | 'code'
   | 'archive'
+  | 'installer'
   | 'text'
   | 'folder'
   | 'unknown';
@@ -65,6 +66,18 @@ export function getFileCategory(mimeType: string | null | undefined, isFolder?: 
   ];
   if (archiveTypes.includes(mimeType)) return 'archive';
 
+  const installerTypes = [
+    'application/x-msdownload',
+    'application/x-msi',
+    'application/x-apple-diskimage',
+    'application/x-newton-compatible-pkg',
+    'application/vnd.debian.binary-package',
+    'application/x-rpm',
+    'application/vnd.android.package-archive',
+    'application/x-executable',
+  ];
+  if (installerTypes.includes(mimeType)) return 'installer';
+
   const codeTypes = [
     'application/javascript',
     'application/typescript',
@@ -97,6 +110,7 @@ export function getCategoryColor(category: FileCategory): string {
     presentation: 'text-orange-400',
     code: 'text-cyan-400',
     archive: 'text-yellow-400',
+    installer: 'text-indigo-400',
     text: 'text-slate-400',
     unknown: 'text-muted-foreground',
   };
@@ -116,6 +130,7 @@ export function getCategoryBg(category: FileCategory): string {
     presentation: 'bg-orange-500/10',
     code: 'bg-cyan-500/10',
     archive: 'bg-yellow-500/10',
+    installer: 'bg-indigo-500/10',
     text: 'bg-slate-500/10',
     unknown: 'bg-muted/50',
   };

@@ -34,6 +34,7 @@ import {
   Presentation,
   Archive,
   FileCode,
+  Package,
 } from 'lucide-react';
 import type { DashboardStats } from '@/services/api';
 
@@ -46,6 +47,7 @@ const CATEGORY_META = {
   spreadsheet: { label: '表格', icon: FileSpreadsheet, color: 'text-green-500', bg: 'bg-green-500/10' },
   presentation: { label: '演示', icon: Presentation, color: 'text-orange-500', bg: 'bg-orange-500/10' },
   archive: { label: '压缩包', icon: Archive, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+  installer: { label: '安装包', icon: Package, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
   code: { label: '代码', icon: FileCode, color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
   text: { label: '文本', icon: FileText, color: 'text-slate-500', bg: 'bg-slate-500/10' },
   other: { label: '其他', icon: File, color: 'text-muted-foreground', bg: 'bg-muted/60' },

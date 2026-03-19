@@ -440,6 +440,14 @@ app.get('/me', authMiddleware, async (c) => {
     return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '用户不存在' } }, 404);
   }
 
+  const bucketRows = await db
+    .select()
+    .from(storageBuckets)
+    .where(and(eq(storageBuckets.userId, userId!), eq(storageBuckets.isActive, true)))
+    .all();
+  const bucketStorageUsed = bucketRows.reduce((sum, b) => sum + (b.storageUsed ?? 0), 0);
+  const actualStorageUsed = Math.max(user.storageUsed ?? 0, bucketStorageUsed);
+
   return c.json({
     success: true,
     data: {
@@ -448,7 +456,7 @@ app.get('/me', authMiddleware, async (c) => {
       name: user.name,
       role: user.role,
       storageQuota: user.storageQuota,
-      storageUsed: user.storageUsed,
+      storageUsed: actualStorageUsed,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     },
@@ -686,6 +694,19 @@ app.get('/stats', authMiddleware, async (c) => {
       ].includes(mime)
     ) {
       category = 'archive';
+    } else if (
+      [
+        'application/x-msdownload',
+        'application/x-msi',
+        'application/x-apple-diskimage',
+        'application/x-newton-compatible-pkg',
+        'application/vnd.debian.binary-package',
+        'application/x-rpm',
+        'application/vnd.android.package-archive',
+        'application/x-executable',
+      ].includes(mime)
+    ) {
+      category = 'installer';
     } else if (
       [
         'application/javascript',
