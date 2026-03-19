@@ -181,11 +181,10 @@ app.get('/:id/preview', async (c) => {
     return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '只支持预览图片' } }, 400);
   }
 
-  const db2 = getDb(c.env.DB);
-  const encKey2 = getEncryptionKey(c.env);
-  const bucketCfg2 = await resolveBucketConfig(db2, file.userId, encKey2, file.bucketId, file.parentId);
-  if (bucketCfg2) {
-    const s3Res = await s3Get(bucketCfg2, file.r2Key);
+  const encKey = getEncryptionKey(c.env);
+  const bucketCfg = await resolveBucketConfig(db, file.userId, encKey, file.bucketId, file.parentId);
+  if (bucketCfg) {
+    const s3Res = await s3Get(bucketCfg, file.r2Key);
     return new Response(s3Res.body, {
       headers: { 'Content-Type': file.mimeType!, 'Cache-Control': 'private, max-age=300' },
     });
@@ -246,6 +245,7 @@ app.get('/:id/download', async (c) => {
       return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件内容不存在' } }, 404);
     return new Response(r2Object.body, { headers: dlHeaders });
   }
+  return c.json({ success: false, error: { code: 'NO_STORAGE', message: '存储桶未配置' } }, 500);
 });
 
 export default app;

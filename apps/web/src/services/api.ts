@@ -45,10 +45,22 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isShareApi = error.config?.url?.includes('/api/share/');
-      if (!isShareApi) {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+      const url: string = error.config?.url || '';
+      // 以下路径允许返回 401 而不触发全局登出：
+      //   - 分享链接（需要密码时返回 401）
+      //   - 登录/注册接口（凭证错误时返回 401）
+      const isPublicEndpoint =
+        url.includes('/api/share/') ||
+        url.includes('/api/auth/login') ||
+        url.includes('/api/auth/register');
+
+      if (!isPublicEndpoint) {
+        // 确认当前确实处于已认证状态才执行登出（避免未登录时循环跳转）
+        const { isAuthenticated } = useAuthStore.getState();
+        if (isAuthenticated) {
+          useAuthStore.getState().logout();
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

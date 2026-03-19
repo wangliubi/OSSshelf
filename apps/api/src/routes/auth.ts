@@ -10,8 +10,8 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and, gt, desc } from 'drizzle-orm';
-import { getDb, users, loginAttempts, userDevices } from '../db';
+import { eq, and, gt, desc, isNull, isNotNull, inArray } from 'drizzle-orm';
+import { getDb, users, loginAttempts, userDevices, files, storageBuckets } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { signJWT, hashPassword, verifyPassword } from '../lib/crypto';
 import {
@@ -600,27 +600,25 @@ app.get('/stats', authMiddleware, async (c) => {
   const userId = c.get('userId')!;
   const db = getDb(c.env.DB);
 
-  const { isNull, isNotNull, eq: deq, and, count, sum } = await import('drizzle-orm');
-  const { files } = await import('../db');
-
   const activeFiles = await db
     .select()
     .from(files)
-    .where(and(deq(files.userId, userId), isNull(files.deletedAt)))
+    .where(and(eq(files.userId, userId), isNull(files.deletedAt)))
     .all();
 
   const fileCount = activeFiles.filter((f) => !f.isFolder).length;
   const folderCount = activeFiles.filter((f) => f.isFolder).length;
   const trashCount = await db
-    .select()
+    .select({ id: files.id })
     .from(files)
-    .where(and(deq(files.userId, userId), isNotNull(files.deletedAt)))
+    .where(and(eq(files.userId, userId), isNotNull(files.deletedAt)))
     .all()
     .then((r) => r.length);
 
+  // 按 updatedAt 降序取最近 10 个文件（最近访问/修改优先）
   const recentFiles = activeFiles
     .filter((f) => !f.isFolder)
-    .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
+    .sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1))
     .slice(0, 10);
 
   const typeBreakdown: Record<string, number> = {};
@@ -693,13 +691,12 @@ app.get('/stats', authMiddleware, async (c) => {
     typeBreakdown[category] = (typeBreakdown[category] || 0) + f.size;
   }
 
-  const { users: usersTable, storageBuckets } = await import('../db');
-  const userRow = await db.select().from(usersTable).where(deq(usersTable.id, userId)).get();
+  const userRow = await db.select().from(users).where(eq(users.id, userId)).get();
 
   const bucketRows = await db
     .select()
     .from(storageBuckets)
-    .where(and(deq(storageBuckets.userId, userId), deq(storageBuckets.isActive, true)))
+    .where(and(eq(storageBuckets.userId, userId), eq(storageBuckets.isActive, true)))
     .all();
   const bucketStorageUsed = bucketRows.reduce((sum, b) => sum + (b.storageUsed ?? 0), 0);
   const totalStorageUsed = Math.max(userRow?.storageUsed ?? 0, bucketStorageUsed);

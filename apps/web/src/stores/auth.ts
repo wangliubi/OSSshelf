@@ -65,20 +65,19 @@ export const useAuthStore = create<AuthState>()(
               isInitialized: true,
             });
           } else {
-            set({
-              user: null,
-              token: null,
-              isAuthenticated: false,
-              isInitialized: true,
-            });
+            // 服务端返回成功但无用户数据，视为会话失效
+            set({ user: null, token: null, isAuthenticated: false, isInitialized: true });
           }
-        } catch {
-          set({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isInitialized: true,
-          });
+        } catch (err: any) {
+          // 仅在明确的 401（会话失效/令牌无效）时清除凭证
+          // 网络错误、5xx 等临时故障保留 token，避免网络抖动导致用户被意外登出
+          const status = err?.response?.status;
+          if (status === 401) {
+            set({ user: null, token: null, isAuthenticated: false, isInitialized: true });
+          } else {
+            // 网络错误或服务端错误：保持已有 token，标记已初始化
+            set({ isInitialized: true });
+          }
         }
       },
     }),

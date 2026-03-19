@@ -113,7 +113,9 @@ export const storageBuckets = sqliteTable(
   (table) => ({
     userActiveIdx: index('idx_buckets_user_active').on(table.userId, table.isActive),
     providerIdx: index('idx_buckets_provider').on(table.provider),
-    userDefaultIdx: uniqueIndex('idx_storage_buckets_user_default').on(table.userId),
+    // 注意：每用户只允许一个默认桶由业务层保证（设置新默认桶前先清除旧默认），
+    // 此处用普通索引以允许用户拥有多个存储桶记录
+    userDefaultIdx: index('idx_storage_buckets_user_default').on(table.userId, table.isDefault),
   })
 );
 

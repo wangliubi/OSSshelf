@@ -301,31 +301,38 @@ app.get('/', async (c) => {
     return aVal < bVal ? 1 : -1;
   });
 
+  // 批量查询存储桶信息（避免 N+1）
   const bucketIds = [...new Set(sorted.map((f) => f.bucketId).filter(Boolean))] as string[];
   const bucketMap: Record<string, { id: string; name: string; provider: string }> = {};
-  for (const bid of bucketIds) {
-    const b = await db.select().from(storageBuckets).where(eq(storageBuckets.id, bid)).get();
-    if (b) bucketMap[b.id] = { id: b.id, name: b.name, provider: b.provider };
+  if (bucketIds.length > 0) {
+    const bucketRows = await db
+      .select({ id: storageBuckets.id, name: storageBuckets.name, provider: storageBuckets.provider })
+      .from(storageBuckets)
+      .where(inArray(storageBuckets.id, bucketIds))
+      .all();
+    for (const b of bucketRows) bucketMap[b.id] = b;
   }
 
-  // 获取文件归属人信息（用于显示共享文件的owner）
+  // 批量查询文件归属人信息（避免 N+1）
   const ownerIds = [...new Set(sorted.map((f) => f.userId).filter(Boolean))] as string[];
   const ownerMap: Record<string, { id: string; name: string | null; email: string }> = {};
-  for (const oid of ownerIds) {
-    const u = await db
+  if (ownerIds.length > 0) {
+    const ownerRows = await db
       .select({ id: users.id, name: users.name, email: users.email })
       .from(users)
-      .where(eq(users.id, oid))
-      .get();
-    if (u) ownerMap[u.id] = u;
+      .where(inArray(users.id, ownerIds))
+      .all();
+    for (const u of ownerRows) ownerMap[u.id] = u;
   }
 
-  // 获取当前用户对每个文件的权限信息
+  // 权限信息（纯内存计算，无需额外 DB 查询）
+  const permittedIdSet = new Set(permittedIds);
   const permissionsMap: Record<string, { permission: string | null; isOwner: boolean }> = {};
   for (const file of sorted) {
+    const isOwner = file.userId === userId;
     permissionsMap[file.id] = {
-      permission: file.userId === userId ? 'admin' : permittedIds.includes(file.id) ? 'read' : null,
-      isOwner: file.userId === userId,
+      permission: isOwner ? 'admin' : permittedIdSet.has(file.id) ? 'read' : null,
+      isOwner,
     };
   }
 
@@ -380,7 +387,17 @@ app.delete('/trash/:id', async (c) => {
     .where(and(eq(files.id, fileId), eq(files.userId, userId), isNotNull(files.deletedAt)))
     .get();
   if (!file) return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
-  if (!file.isFolder) await deleteFileFromStorage(c.env, db, userId, encKey, file);
+  if (!file.isFolder) {
+    await deleteFileFromStorage(c.env, db, userId, encKey, file);
+    // 更新用户存储配额
+    const user = await db.select().from(users).where(eq(users.id, userId)).get();
+    if (user) {
+      await db
+        .update(users)
+        .set({ storageUsed: Math.max(0, user.storageUsed - file.size), updatedAt: new Date().toISOString() })
+        .where(eq(users.id, userId));
+    }
+  }
   await db.delete(files).where(eq(files.id, fileId));
   return c.json({ success: true, data: { message: '已永久删除' } });
 });
@@ -761,6 +778,10 @@ app.get('/:id/download', async (c) => {
 });
 
 // ── Shared helper ──────────────────────────────────────────────────────────
+/**
+ * 从对象存储中删除文件，更新 bucket 统计。
+ * 注意：此函数不更新用户 storageUsed，由调用方统一批量更新以避免双重扣减。
+ */
 async function deleteFileFromStorage(
   env: Env,
   db: ReturnType<typeof getDb>,
@@ -779,12 +800,6 @@ async function deleteFileFromStorage(
   } else if (env.FILES) {
     await env.FILES.delete(file.r2Key);
   }
-  const user = await db.select().from(users).where(eq(users.id, userId)).get();
-  if (user)
-    await db
-      .update(users)
-      .set({ storageUsed: Math.max(0, user.storageUsed - file.size), updatedAt: new Date().toISOString() })
-      .where(eq(users.id, userId));
 }
 
 export default app;

@@ -10,7 +10,7 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and, isNull, like, gte, lte, inArray, or, SQL } from 'drizzle-orm';
+import { eq, and, isNull, like, gte, lte, inArray, or, desc, SQL } from 'drizzle-orm';
 import { getDb, files, fileTags, storageBuckets } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { ERROR_CODES } from '@osshelf/shared';
@@ -447,7 +447,7 @@ app.get('/recent', async (c) => {
     .select()
     .from(files)
     .where(and(eq(files.userId, userId), isNull(files.deletedAt), eq(files.isFolder, false)))
-    .orderBy(files.updatedAt)
+    .orderBy(desc(files.updatedAt))
     .limit(limit)
     .all();
 
