@@ -8,9 +8,9 @@
  * - 后台同步
  */
 
-const CACHE_NAME = 'osshelf-v1';
-const STATIC_CACHE_NAME = 'osshelf-static-v1';
-const DYNAMIC_CACHE_NAME = 'osshelf-dynamic-v1';
+const CACHE_NAME = 'osshelf-v2';
+const STATIC_CACHE_NAME = 'osshelf-static-v2';
+const DYNAMIC_CACHE_NAME = 'osshelf-dynamic-v2';
 
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
@@ -58,47 +58,57 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // 只处理 GET 请求
   if (request.method !== 'GET') {
     return;
   }
 
+  // 非同源请求（预签名 S3/R2 URL 等）不拦截，让浏览器直接处理
+  if (url.origin !== location.origin) {
+    return;
+  }
+
+  // 下载、预签名相关路径不走缓存
   if (url.pathname.startsWith('/api/files/download/') || url.pathname.includes('/presign')) {
     return;
   }
 
+  // API 请求：network first
   if (CACHE_STRATEGIES.networkFirst.some((path) => url.pathname.startsWith(path))) {
     event.respondWith(networkFirst(request));
     return;
   }
 
+  // 预览/缩略图：cache first
   if (CACHE_STRATEGIES.cacheFirst.some((path) => url.pathname.includes(path))) {
     event.respondWith(cacheFirst(request));
     return;
   }
 
+  // stale-while-revalidate
   if (CACHE_STRATEGIES.staleWhileRevalidate.some((path) => url.pathname.startsWith(path))) {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }
 
-  if (url.origin === location.origin) {
-    if (request.destination === 'document') {
-      event.respondWith(networkFirst(request));
-      return;
-    }
-
-    if (
-      request.destination === 'style' ||
-      request.destination === 'script' ||
-      request.destination === 'image' ||
-      request.destination === 'font'
-    ) {
-      event.respondWith(staleWhileRevalidate(request));
-      return;
-    }
+  // 页面导航（SPA 路由如 /files/xxx）统一走 networkFirst，失败时回退到缓存的 index.html
+  if (request.destination === 'document') {
+    event.respondWith(networkFirst(request));
+    return;
   }
 
-  event.respondWith(fetch(request));
+  // 静态资源：stale-while-revalidate
+  if (
+    request.destination === 'style' ||
+    request.destination === 'script' ||
+    request.destination === 'image' ||
+    request.destination === 'font'
+  ) {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+
+  // 其他请求（fetch/XHR 发出的 API 调用等）不拦截，避免意外捕获导致网络错误
 });
 
 async function networkFirst(request) {
