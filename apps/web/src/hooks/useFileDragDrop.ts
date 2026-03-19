@@ -9,23 +9,17 @@
  */
 
 import { useState, useCallback } from 'react';
-import type { UseMutationResult } from '@tanstack/react-query';
 import { useFolderUpload } from '@/hooks/useFolderUpload';
 import { useToast } from '@/components/ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-
-interface UploadMutationParams {
-  file: File;
-  parentId: string | null;
-}
+import { uploadManager } from '@/services/uploadManager';
 
 interface UseFileDragDropProps {
   folderId: string | null;
-  uploadMutation: UseMutationResult<any, any, UploadMutationParams, any>;
   setUploadProgresses: React.Dispatch<React.SetStateAction<Record<string, number>>>;
 }
 
-export function useFileDragDrop({ folderId, uploadMutation, setUploadProgresses }: UseFileDragDropProps) {
+export function useFileDragDrop({ folderId, setUploadProgresses }: UseFileDragDropProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -89,11 +83,38 @@ export function useFileDragDrop({ folderId, uploadMutation, setUploadProgresses 
         uploadFolderEntriesDirect(entries);
       } else {
         Array.from(e.dataTransfer.files).forEach((file) => {
-          uploadMutation.mutate({ file, parentId: folderId || null });
+          const key = `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          setUploadProgresses((p) => ({ ...p, [key]: 0 }));
+          uploadManager
+            .startUpload(file, folderId || null, null, (progress) =>
+              setUploadProgresses((prev) => ({ ...prev, [key]: progress }))
+            )
+            .then(() => {
+              setUploadProgresses((p) => {
+                const n = { ...p };
+                delete n[key];
+                return n;
+              });
+              queryClient.invalidateQueries({ queryKey: ['files', folderId] });
+              queryClient.invalidateQueries({ queryKey: ['stats'] });
+              toast({ title: '上传成功' });
+            })
+            .catch((e: any) => {
+              setUploadProgresses((p) => {
+                const n = { ...p };
+                delete n[key];
+                return n;
+              });
+              toast({
+                title: '上传失败',
+                description: e?.message || e?.response?.data?.error?.message,
+                variant: 'destructive',
+              });
+            });
         });
       }
     },
-    [folderId, uploadMutation, uploadFolderEntriesDirect]
+    [folderId, uploadFolderEntriesDirect, setUploadProgresses, queryClient, toast]
   );
 
   return {

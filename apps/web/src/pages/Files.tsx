@@ -213,7 +213,6 @@ export default function Files() {
   const fileMutations = useFileMutations();
   const {
     createFolderMutation,
-    uploadMutation,
     deleteMutation,
     renameMutation,
     moveMutation,
@@ -271,7 +270,6 @@ export default function Files() {
 
   const { isDragActive, handleDragOver, handleDragLeave, handleDrop } = useFileDragDrop({
     folderId: folderId ?? null,
-    uploadMutation,
     setUploadProgresses,
   });
 
