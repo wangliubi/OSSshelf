@@ -78,7 +78,7 @@ export function getFileCategory(mimeType: string | null | undefined, isFolder?: 
   return 'unknown';
 }
 
-import { isPreviewableMimeType, OFFICE_MIME_TYPES } from '@osshelf/shared';
+import { isPreviewableMimeType } from '@osshelf/shared';
 
 export function isPreviewable(mimeType: string | null | undefined): boolean {
   return isPreviewableMimeType(mimeType);

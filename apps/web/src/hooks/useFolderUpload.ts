@@ -27,12 +27,6 @@ interface UseFolderUploadOptions {
   onAllDone?: () => void;
 }
 
-interface FolderNode {
-  name: string;
-  parentPath: string;
-  id?: string; // resolved after creation
-}
-
 export function useFolderUpload({
   currentFolderId,
   onFileStart,

@@ -12,7 +12,6 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, X, Keyboard } from 'lucide-react';
-import { cn } from '@/utils';
 
 interface ShortcutGroup {
   title: string;

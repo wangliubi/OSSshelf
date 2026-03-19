@@ -77,7 +77,12 @@ const PRESET_TYPES = [
   },
 ];
 
-export function FolderSettings({ folderId, folderName, currentAllowedTypes, onClose }: FolderSettingsProps) {
+export function FolderSettings({
+  folderId,
+  folderName: _folderName,
+  currentAllowedTypes,
+  onClose,
+}: FolderSettingsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTypes, setSelectedTypes] = useState<string[]>(currentAllowedTypes || []);

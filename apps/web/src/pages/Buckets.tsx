@@ -9,7 +9,7 @@
  * - 存储桶配额设置
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bucketsApi, PROVIDER_META, type StorageBucket, type BucketFormData } from '@/services/api';
 import { Button } from '@/components/ui/button';
@@ -22,8 +22,6 @@ import {
   Plus,
   Trash2,
   Star,
-  StarOff,
-  RefreshCw,
   CheckCircle2,
   XCircle,
   AlertTriangle,
@@ -40,7 +38,6 @@ import {
   Save,
   Database,
   Wifi,
-  WifiOff,
 } from 'lucide-react';
 
 // ── Provider Badge ────────────────────────────────────────────────────────
@@ -531,7 +528,7 @@ export default function Buckets() {
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => bucketsApi.toggle(id),
-    onSuccess: (res, id) => {
+    onSuccess: (res) => {
       const active = res.data.data?.isActive;
       toast({ title: active ? '已启用存储桶' : '已禁用存储桶' });
       invalidate();
@@ -701,7 +698,7 @@ export default function Buckets() {
                 StorageBucket['provider'],
                 (typeof PROVIDER_META)[keyof typeof PROVIDER_META],
               ][]
-            ).map(([key, m]) => (
+            ).map(([key, _m]) => (
               <ProviderBadge key={key} provider={key} />
             ))}
           </div>

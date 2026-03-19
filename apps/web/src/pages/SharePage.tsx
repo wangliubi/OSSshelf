@@ -17,13 +17,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileIcon } from '@/components/ui/FileIcon';
 import { formatBytes, formatDate } from '@/utils';
-import { Download, Lock, Clock, AlertCircle, Eye, HardDrive, ShieldCheck } from 'lucide-react';
+import { Download, Lock, Clock, AlertCircle, HardDrive, ShieldCheck } from 'lucide-react';
 
 export default function SharePage() {
   const { shareId } = useParams<{ shareId: string }>();
   const [password, setPassword] = useState('');
   const [enteredPassword, setEnteredPassword] = useState<string | undefined>(undefined);
-  const [previewOpen, setPreviewOpen] = useState(false);
 
   const { data, isLoading, error, isError } = useQuery({
     queryKey: ['share-public', shareId, enteredPassword],
@@ -34,7 +33,6 @@ export default function SharePage() {
 
   const share = data?.data as any;
   const errorCode = (error as any)?.response?.data?.error?.code;
-  const needsPassword = errorCode === 'SHARE_PASSWORD_REQUIRED' || (!data?.success && !isLoading);
   const isExpired = errorCode === 'SHARE_EXPIRED';
   const isExhausted = errorCode === 'SHARE_DOWNLOAD_LIMIT_EXCEEDED';
 

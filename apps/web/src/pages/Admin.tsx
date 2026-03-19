@@ -11,7 +11,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminApi, type AdminUser, type AdminStats, type RegistrationConfig } from '@/services/api';
+import { adminApi, type AdminUser } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,6 @@ import { cn } from '@/utils';
 import {
   Users,
   Shield,
-  Settings2,
   Trash2,
   Edit3,
   Save,
@@ -31,21 +30,15 @@ import {
   Copy,
   Key,
   UserCheck,
-  UserX,
   Server,
   Database,
   FileText,
   FolderOpen,
   AlertTriangle,
-  CheckCircle2,
-  RefreshCw,
   Loader2,
-  Eye,
-  EyeOff,
   ToggleLeft,
   ToggleRight,
   Mail,
-  Ban,
   Clock,
 } from 'lucide-react';
 

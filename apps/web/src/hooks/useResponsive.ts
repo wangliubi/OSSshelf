@@ -8,7 +8,7 @@
  * - 提供断点信息
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface ResponsiveInfo {
   isMobile: boolean;

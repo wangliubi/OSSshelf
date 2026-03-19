@@ -260,7 +260,7 @@ class UploadManager {
     return true;
   }
 
-  async resumeUpload(jobId: string, onProgress?: (percent: number) => void): Promise<boolean> {
+  async resumeUpload(jobId: string, _onProgress?: (percent: number) => void): Promise<boolean> {
     const job = this.jobs.get(jobId);
     if (!job || job.status !== 'paused') return false;
 

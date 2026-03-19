@@ -30,7 +30,6 @@ import {
   FileText,
   File,
   ChevronRight,
-  Database,
   FileSpreadsheet,
   Presentation,
   Archive,

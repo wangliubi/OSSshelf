@@ -120,7 +120,6 @@ export default function Tasks() {
       }
     });
     setExpandedGroups(defaultExpanded);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeTasks = tasks.filter((t) => ['uploading', 'pending', 'paused'].includes(t.status));

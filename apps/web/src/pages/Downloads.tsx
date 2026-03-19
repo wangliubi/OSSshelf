@@ -28,9 +28,7 @@ import {
   XCircle,
   Clock,
   AlertTriangle,
-  ExternalLink,
   RotateCw,
-  FileText,
   Link,
 } from 'lucide-react';
 

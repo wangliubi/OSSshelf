@@ -11,7 +11,7 @@
  * - 移动端触摸手势
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFileStore, type ViewMode } from '@/stores/files';
@@ -65,16 +65,13 @@ import {
   Image as ImageIcon,
   FolderInput,
   Database,
-  MoreVertical,
   Copy,
   Scissors,
   Clipboard,
   RefreshCw,
   Columns,
-  LayoutGrid,
   CheckCircle2,
   Tag,
-  AlertTriangle,
   Shield,
   Settings,
   SlidersHorizontal,
@@ -211,7 +208,6 @@ export default function Files() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { token } = useAuthStore();
-  const { isMobile } = useResponsive();
   const {
     viewMode,
     setViewMode,
@@ -228,7 +224,6 @@ export default function Files() {
     clipboard,
     setClipboard,
     clearClipboard,
-    focusedFileId,
     setFocusedFile,
     getNextFileId,
   } = useFileStore();
@@ -267,7 +262,7 @@ export default function Files() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
-  const { openContextMenu, closeContextMenu, ContextMenuComponent } = useContextMenuState();
+  const { openContextMenu, ContextMenuComponent } = useContextMenuState();
 
   const { uploadFolderEntries } = useFolderUpload({
     currentFolderId: folderId,
@@ -321,7 +316,7 @@ export default function Files() {
     queryFn: () => filesApi.list({ parentId: folderId || null }).then((r) => r.data.data ?? []),
   });
 
-  const { data: tagSearchResults, isLoading: isTagSearchLoading } = useQuery<FileItem[]>({
+  const { data: tagSearchResults } = useQuery<FileItem[]>({
     queryKey: ['tag-search', tagSearchQuery],
     queryFn: async () => {
       if (!tagSearchQuery) return [];
@@ -331,7 +326,7 @@ export default function Files() {
     enabled: !!tagSearchQuery,
   });
 
-  const { data: recursiveSearchResults, isLoading: isRecursiveSearchLoading } = useQuery<FileItem[]>({
+  const { data: recursiveSearchResults } = useQuery<FileItem[]>({
     queryKey: ['recursive-search', folderId, searchQuery],
     queryFn: async () => {
       if (!searchQuery || !recursiveSearch) return [];
@@ -345,7 +340,7 @@ export default function Files() {
     enabled: !!searchQuery && recursiveSearch,
   });
 
-  const { data: advancedSearchResults, isLoading: isAdvancedSearchLoading } = useQuery<FileItem[]>({
+  const { data: advancedSearchResults } = useQuery<FileItem[]>({
     queryKey: ['advanced-search', advancedConditions, advancedLogic],
     queryFn: async () => {
       if (advancedConditions.length === 0) return [];
@@ -676,8 +671,6 @@ export default function Files() {
 
   const getFileContextMenuItems = useCallback(
     (file: FileItem): ContextMenuItem[] => {
-      const canPreview = !file.isFolder && isPreviewable(file.mimeType);
-
       return [
         {
           id: 'open',
@@ -872,7 +865,6 @@ export default function Files() {
   });
 
   const activeUploads = Object.entries(uploadProgresses);
-  const hasActiveUploads = activeUploads.length > 0;
 
   const viewModes: { mode: ViewMode; icon: typeof List; label: string }[] = [
     { mode: 'list', icon: List, label: '列表' },
@@ -1805,12 +1797,12 @@ function MasonryItem({
   tags,
   onClick,
   onToggleSelect,
-  onDownload,
-  onShare,
-  onDelete,
-  onRename,
-  onPreview,
-  onMove,
+  onDownload: _onDownload,
+  onShare: _onShare,
+  onDelete: _onDelete,
+  onRename: _onRename,
+  onPreview: _onPreview,
+  onMove: _onMove,
   onContextMenu,
   onTagClick,
 }: ItemProps) {

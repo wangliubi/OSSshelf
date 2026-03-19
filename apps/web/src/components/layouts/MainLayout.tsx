@@ -61,7 +61,6 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);

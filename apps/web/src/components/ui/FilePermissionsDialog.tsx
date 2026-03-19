@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/utils';
-import { Shield, X, Plus, Trash2, Crown, Eye, Edit, UserPlus, Loader2, Search } from 'lucide-react';
+import { Shield, X, Trash2, Crown, Eye, Edit, UserPlus, Loader2 } from 'lucide-react';
 
 interface FilePermissionsDialogProps {
   fileId: string;

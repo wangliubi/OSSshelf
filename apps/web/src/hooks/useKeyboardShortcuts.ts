@@ -24,19 +24,6 @@ export interface ShortcutConfig {
   enabled?: boolean;
 }
 
-interface ShortcutMap {
-  [key: string]: ShortcutConfig;
-}
-
-function getShortcutId(config: ShortcutConfig): string {
-  const parts: string[] = [];
-  if (config.ctrl || config.meta) parts.push('mod');
-  if (config.shift) parts.push('shift');
-  if (config.alt) parts.push('alt');
-  parts.push(config.key.toLowerCase());
-  return parts.join('+');
-}
-
 function matchesShortcut(event: KeyboardEvent, config: ShortcutConfig): boolean {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const modPressed = isMac ? event.metaKey : event.ctrlKey;

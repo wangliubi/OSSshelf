@@ -10,7 +10,7 @@
  * - 点击外部自动关闭
  */
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/utils';
 
 export interface ContextMenuItem {
@@ -23,20 +23,6 @@ export interface ContextMenuItem {
   divider?: boolean;
   submenu?: ContextMenuItem[];
   action?: () => void;
-}
-
-interface ContextMenuState {
-  isOpen: boolean;
-  position: { x: number; y: number };
-  items: ContextMenuItem[];
-  onClose: () => void;
-}
-
-const ContextMenuContext = createContext<ContextMenuState | null>(null);
-
-function useContextMenu() {
-  const context = useContext(ContextMenuContext);
-  return context;
 }
 
 interface ContextMenuProps {
@@ -116,7 +102,7 @@ export function ContextMenu({ isOpen, position, items, onClose }: ContextMenuPro
       className="fixed z-[9999] min-w-[180px] max-w-[280px] bg-popover border rounded-lg shadow-lg py-1 animate-in fade-in-0 zoom-in-95"
       style={{ left: adjustedPosition.x, top: adjustedPosition.y }}
     >
-      {items.map((item, index) => (
+      {items.map((item) => (
         <MenuItem
           key={item.id}
           item={item}

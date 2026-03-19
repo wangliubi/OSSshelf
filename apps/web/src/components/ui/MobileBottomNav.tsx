@@ -23,7 +23,6 @@ import {
   Trash2,
   Database,
   LogOut,
-  User,
   Download,
   Shield,
 } from 'lucide-react';

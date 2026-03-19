@@ -15,7 +15,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuthStore } from '@/stores/auth';
 import { formatDate } from '@/utils';
 import { cn } from '@/utils';
-import type { UserDevice } from '@osshelf/shared';
 import {
   Monitor,
   Smartphone,

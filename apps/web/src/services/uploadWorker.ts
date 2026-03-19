@@ -50,21 +50,6 @@ async function apiPost<T>(path: string, data: unknown): Promise<T> {
   return json.data;
 }
 
-async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...setAuthHeaders(),
-    },
-  });
-  const json = await res.json();
-  if (!json.success) {
-    throw new Error(json.error?.message || `API error at ${path}`);
-  }
-  return json.data;
-}
-
 async function uploadPart(partUrl: string, chunk: ArrayBuffer, contentType: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -127,7 +112,7 @@ async function multipartUpload(
     bucketId: task.bucketId,
   });
 
-  const { taskId, uploadId, r2Key, bucketId, firstPartUrl } = init;
+  const { taskId, firstPartUrl } = init;
   const parts: PartUploadResult[] = [];
   let uploadedBytes = 0;
 
