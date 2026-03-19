@@ -434,8 +434,7 @@ export default function Files() {
   const handleShareConfirm = useCallback(
     (params: { password?: string; expiresAt?: string; downloadLimit?: number }) => {
       if (!shareFileId) return;
-      shareMutation.mutate({ fileId: shareFileId, ...params });
-      setShareFileId(null);
+      shareMutation.mutate({ fileId: shareFileId, ...params }, { onSuccess: () => setShareFileId(null) });
     },
     [shareFileId, shareMutation, setShareFileId]
   );
@@ -891,14 +890,19 @@ export default function Files() {
           bucketId={newFolderBucketId}
           onNameChange={setNewFolderName}
           onBucketChange={setNewFolderBucketId}
-          onConfirm={() =>
-            newFolderName.trim() &&
-            createFolderMutation.mutate({
-              name: newFolderName.trim(),
-              parentId: folderId || null,
-              bucketId: newFolderBucketId,
-            })
-          }
+          onConfirm={() => {
+            if (!newFolderName.trim()) return;
+            createFolderMutation.mutate(
+              {
+                name: newFolderName.trim(),
+                parentId: folderId || null,
+                bucketId: newFolderBucketId,
+              },
+              {
+                onSuccess: () => resetNewFolderDialog(),
+              }
+            );
+          }}
           onCancel={resetNewFolderDialog}
           loading={createFolderMutation.isPending}
         />
@@ -917,7 +921,9 @@ export default function Files() {
         <RenameDialog
           currentName={renameFile.name}
           isPending={renameMutation.isPending}
-          onConfirm={(name) => renameMutation.mutate({ id: renameFile.id, name })}
+          onConfirm={(name) =>
+            renameMutation.mutate({ id: renameFile.id, name }, { onSuccess: () => setRenameFile(null) })
+          }
           onCancel={() => setRenameFile(null)}
         />
       )}
@@ -926,7 +932,9 @@ export default function Files() {
         <MoveFolderPicker
           excludeIds={[moveFile.id]}
           isPending={moveMutation.isPending}
-          onConfirm={(targetParentId) => moveMutation.mutate({ id: moveFile.id, targetParentId })}
+          onConfirm={(targetParentId) =>
+            moveMutation.mutate({ id: moveFile.id, targetParentId }, { onSuccess: () => setMoveFile(null) })
+          }
           onCancel={() => setMoveFile(null)}
         />
       )}
