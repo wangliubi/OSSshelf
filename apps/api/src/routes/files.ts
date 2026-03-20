@@ -320,14 +320,14 @@ app.post('/upload', async (c) => {
     if (bkt?.provider === 'telegram') isTelegramBucket = true;
   }
 
-  // Telegram 文件大小检查（分片上传最大 200MB；≤49MB 直接上传，>49MB 自动分片）
+  // Telegram 文件大小检查（分片上传最大 2GB；≤50MB 直接上传，>50MB 自动分片）
   if (isTelegramBucket && uploadFile.size > TG_MAX_CHUNKED_FILE_SIZE) {
     return c.json(
       {
         success: false,
         error: {
           code: ERROR_CODES.FILE_TOO_LARGE,
-          message: `Telegram 存储桶文件上限 500MB，当前文件 ${(uploadFile.size / 1024 / 1024).toFixed(1)}MB`,
+          message: `Telegram 存储桶文件上限 2GB，当前文件 ${(uploadFile.size / 1024 / 1024 / 1024).toFixed(2)}GB`,
         },
       },
       413

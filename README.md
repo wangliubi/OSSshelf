@@ -133,6 +133,7 @@ ossshelf/
 
 **限制**：
 - 单文件最大 2GB（分片上传）
+- 小文件直传阈值 50MB
 - 单分片最大 30MB
 - 无法真正删除文件，只能删除消息引用
 - 需要稳定的网络连接到 Telegram API
@@ -251,6 +252,7 @@ wrangler pages deploy apps/web/dist --project-name=ossshelf-web
 | 登录失败锁定次数  | 5 次    |
 | 登录锁定时长      | 15 分钟 |
 | Telegram 单文件上限 | 2 GB   |
+| Telegram 分片阈值 | 50 MB  |
 | Telegram 单分片大小 | 30 MB  |
 
 ## 上传逻辑详解
