@@ -85,12 +85,9 @@ export async function tgUploadFile(
   formData.append('chat_id', config.chatId);
 
   // 根据方法选择字段名
-  // 直接用 Uint8Array 包装，避免 new Blob([buffer]) 产生额外内存复制
   const fieldName = method === 'sendAudio' ? 'audio' : 'document';
-  const fileObj = new File([new Uint8Array(fileBuffer)], fileName, {
-    type: mimeType || 'application/octet-stream',
-  });
-  formData.append(fieldName, fileObj, fileName);
+  const blob = new Blob([fileBuffer], { type: mimeType || 'application/octet-stream' });
+  formData.append(fieldName, blob, fileName);
 
   // 添加 caption，存储文件元信息
   if (caption) {
