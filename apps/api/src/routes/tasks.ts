@@ -565,28 +565,38 @@ app.post('/part-proxy', async (c) => {
 });
 
 // ── POST /api/tasks/telegram-part ────────────────────────────────────────
-// 接收单个分片（≤20MB multipart/form-data），转发到 Telegram Bot API（含代理）。
-// 分片限制 20MB，Worker 峰值内存约 50MB，不会 OOM。
-// metadata（taskId / partNumber / chunkSize）通过 URL query 参数传递。
+// 接收单个分片（≤20MB），转发到 Telegram Bot API（含代理）。
+// 完全照抄 /part-proxy 的 multipart/form-data 模式——这是 Workers+Hono 上
+// 唯一可靠的大 body 读取方式（c.req.arrayBuffer() 在 authMiddleware 消费
+// body stream 后会拿到空，导致 500）。
+// 字段: taskId, partNumber, chunk (File)
 app.post('/telegram-part', async (c) => {
   const userId = c.get('userId')!;
+  const contentType = c.req.header('Content-Type') || '';
 
-  const taskId = c.req.query('taskId');
-  const partNumberStr = c.req.query('partNumber');
-  const chunkSizeStr = c.req.query('chunkSize');
-
-  if (!taskId || !partNumberStr || !chunkSizeStr) {
+  if (!contentType.includes('multipart/form-data')) {
     return c.json(
-      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '缺少 taskId、partNumber 或 chunkSize 查询参数' } },
+      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '请使用 multipart/form-data 格式' } },
+      400
+    );
+  }
+
+  const formData = await c.req.formData();
+  const taskId = formData.get('taskId') as string | null;
+  const partNumberStr = formData.get('partNumber') as string | null;
+  const chunk = formData.get('chunk') as File | null;
+
+  if (!taskId || !partNumberStr || !chunk) {
+    return c.json(
+      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '缺少 taskId、partNumber 或 chunk' } },
       400
     );
   }
 
   const partNumber = parseInt(partNumberStr, 10);
-  const chunkSize = parseInt(chunkSizeStr, 10);
-  if (isNaN(partNumber) || partNumber < 1 || isNaN(chunkSize) || chunkSize < 1) {
+  if (isNaN(partNumber) || partNumber < 1) {
     return c.json(
-      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: 'partNumber 或 chunkSize 无效' } },
+      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: 'partNumber 无效' } },
       400
     );
   }
@@ -632,11 +642,8 @@ app.post('/telegram-part', async (c) => {
     apiBase: bucket.endpoint || undefined,
   };
 
-  // 读取裸二进制请求体（≤20MB，安全）
-  const chunkBuffer = await c.req.arrayBuffer();
-  if (!chunkBuffer || chunkBuffer.byteLength === 0) {
-    return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '请求体为空' } }, 400);
-  }
+  // chunk.arrayBuffer() 与 /part-proxy 完全一致，Workers 上经过验证可靠
+  const chunkBuffer = await chunk.arrayBuffer();
 
   const chunkFileName = `${task.fileName}.part${String(partNumber).padStart(3, '0')}`;
   const caption = `📦 ${task.fileName} [${partNumber}/${task.totalParts}]\n🗂 OSSshelf chunk | group:${groupId.slice(0, 8)}`;
@@ -646,6 +653,7 @@ app.post('/telegram-part', async (c) => {
     const result = await tgUploadFile(tgConfig, chunkBuffer, chunkFileName, task.mimeType, caption);
     tgFileId = result.fileId;
   } catch (e: any) {
+    console.error('[telegram-part] tgUploadFile error:', e?.message, e);
     return c.json(
       { success: false, error: { code: 'TG_UPLOAD_ERROR', message: e?.message || 'Telegram 上传分片失败' } },
       500
@@ -672,7 +680,6 @@ app.post('/telegram-part', async (c) => {
 
   return c.json({ success: true, data: { partNumber, tgFileId } });
 });
-
 
 // ── POST /api/tasks/telegram-upload (legacy, kept for backward compat) ───
 // 旧版单次整包上传入口，已被 /telegram-part 分片方案取代。

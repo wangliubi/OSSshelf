@@ -636,16 +636,18 @@ async function telegramProxyUpload({
     const start = (partNumber - 1) * partSize;
     const end = Math.min(start + partSize, file.size);
     const chunk = file.slice(start, end);
-    const actualChunkSize = end - start;
 
-    // 裸二进制 POST，metadata 走 query 参数，Worker 接收后转发到 Telegram
-    const url = `${API_BASE}/api/tasks/telegram-part?taskId=${encodeURIComponent(taskId)}&partNumber=${partNumber}&chunkSize=${actualChunkSize}`;
+    // 与 /part-proxy 完全一致的 multipart/form-data 格式
+    const formData = new FormData();
+    formData.append('taskId', taskId);
+    formData.append('partNumber', String(partNumber));
+    formData.append('chunk', chunk, file.name);
 
     const res = await axios.post<{ success: boolean; error?: { message: string } }>(
-      url,
-      chunk,
+      `${API_BASE}/api/tasks/telegram-part`,
+      formData,
       {
-        headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream' },
+        headers: { ...authHeaders() },
         signal,
         onUploadProgress: (e) => {
           if (e.total && onProgress) {
