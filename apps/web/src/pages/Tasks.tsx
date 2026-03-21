@@ -111,16 +111,6 @@ export default function Tasks() {
     refetchInterval: 5000,
   });
 
-  useEffect(() => {
-    const defaultExpanded = new Set<string>();
-    taskGroups.forEach((g) => {
-      if (g.defaultExpanded) {
-        defaultExpanded.add(g.label);
-      }
-    });
-    setExpandedGroups(defaultExpanded);
-  }, []);
-
   const activeTasks = tasks.filter((t) => ['uploading', 'pending', 'paused'].includes(t.status));
   const pendingOrUploadingTasks = tasks.filter((t) => ['uploading', 'pending'].includes(t.status));
   const pausedTasks = tasks.filter((t) => t.status === 'paused');
@@ -129,6 +119,16 @@ export default function Tasks() {
   const failedTasks = tasks.filter((t) => ['failed', 'expired', 'aborted'].includes(t.status));
 
   const historyTaskGroups = useMemo(() => groupTasksByDate(historyTasks), [historyTasks]);
+
+  useEffect(() => {
+    const defaultExpanded = new Set<string>();
+    historyTaskGroups.forEach((g: TaskGroup) => {
+      if (g.defaultExpanded) {
+        defaultExpanded.add(g.label);
+      }
+    });
+    setExpandedGroups(defaultExpanded);
+  }, [historyTaskGroups]);
 
   const abortMutation = useMutation({
     mutationFn: (taskId: string) => tasksApi.abort(taskId),
