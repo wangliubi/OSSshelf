@@ -580,6 +580,42 @@ export default function Files() {
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4" />
           </Button>
+          <div className="flex border rounded-md overflow-hidden">
+            {viewModes.map(({ mode, icon: Icon, label }) => (
+              <Button
+                key={mode}
+                variant="ghost"
+                size="icon"
+                className={cn('rounded-none h-8 w-8', viewMode === mode && !galleryMode && 'bg-accent')}
+                onClick={() => {
+                  setViewMode(mode);
+                  setGalleryMode(false);
+                }}
+                title={label}
+              >
+                <Icon className="h-4 w-4" />
+              </Button>
+            ))}
+            {hasImages && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('rounded-none h-8 w-8 border-l', galleryMode && 'bg-accent')}
+                onClick={() => setGalleryMode(true)}
+                title="图库"
+              >
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => selectAll(displayFiles)}
+            disabled={displayFiles.length === 0}
+          >
+            <CheckSquare className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="hidden md:flex items-center gap-2 flex-wrap">

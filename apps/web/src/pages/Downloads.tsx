@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { MoveFolderPicker } from '@/components/ui/MoveFolderPicker';
+import { useResponsive } from '@/hooks/useResponsive';
 import { formatBytes, formatDate } from '@/utils';
 import { cn } from '@/utils';
 import {
@@ -184,6 +185,7 @@ function TaskItem({
 export default function Downloads() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isMobile } = useResponsive();
 
   const [mode, setMode] = useState<'single' | 'batch'>('single');
   const [showForm, setShowForm] = useState(false);
@@ -311,8 +313,8 @@ export default function Downloads() {
           <h1 className="text-2xl font-bold">离线下载</h1>
           <p className="text-muted-foreground text-sm mt-0.5">创建和管理离线下载任务</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
+        <div className={cn('flex items-center gap-2', isMobile && 'flex-col w-full')}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className={cn(isMobile && 'w-full')}>
             <RefreshCw className="h-4 w-4 mr-1.5" />
             刷新
           </Button>
@@ -324,6 +326,7 @@ export default function Downloads() {
                   setMode('single');
                   setShowForm(true);
                 }}
+                className={cn(isMobile && 'w-full')}
               >
                 <Plus className="h-4 w-4 mr-1.5" />
                 新建下载
@@ -335,6 +338,7 @@ export default function Downloads() {
                   setMode('batch');
                   setShowForm(true);
                 }}
+                className={cn(isMobile && 'w-full')}
               >
                 <ListPlus className="h-4 w-4 mr-1.5" />
                 批量导入

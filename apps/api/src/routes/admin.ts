@@ -227,6 +227,16 @@ app.put('/registration', async (c) => {
   const updated: RegConfig = { ...current, ...result.data };
   await c.env.KV.put(REG_CONFIG_KEY, JSON.stringify(updated));
 
+  await createAuditLog({
+    env: c.env,
+    userId: c.get('userId'),
+    action: 'admin.config_change',
+    resourceType: 'registration',
+    details: { before: current, after: updated },
+    ipAddress: getClientIp(c),
+    userAgent: getUserAgent(c),
+  });
+
   return c.json({ success: true, data: updated });
 });
 
@@ -240,15 +250,24 @@ app.post('/registration/codes', async (c) => {
   const now = new Date().toISOString();
 
   for (let i = 0; i < count; i++) {
-    // Format: XXXX-XXXX-XXXX (base32 style)
     const code = generateInviteCode();
     await c.env.KV.put(
       `${INVITE_PREFIX}${code}`,
       JSON.stringify({ usedBy: null, createdAt: now }),
-      { expirationTtl: 60 * 60 * 24 * 30 } // 30 days
+      { expirationTtl: 60 * 60 * 24 * 30 }
     );
     codes.push(code);
   }
+
+  await createAuditLog({
+    env: c.env,
+    userId: c.get('userId'),
+    action: 'admin.invite_code_generate',
+    resourceType: 'invite_code',
+    details: { count, codes },
+    ipAddress: getClientIp(c),
+    userAgent: getUserAgent(c),
+  });
 
   return c.json({ success: true, data: { codes, createdAt: now } });
 });
@@ -258,6 +277,17 @@ app.post('/registration/codes', async (c) => {
 app.delete('/registration/codes/:code', async (c) => {
   const code = c.req.param('code');
   await c.env.KV.delete(`${INVITE_PREFIX}${code}`);
+
+  await createAuditLog({
+    env: c.env,
+    userId: c.get('userId'),
+    action: 'admin.invite_code_revoke',
+    resourceType: 'invite_code',
+    details: { code },
+    ipAddress: getClientIp(c),
+    userAgent: getUserAgent(c),
+  });
+
   return c.json({ success: true, data: { message: '邀请码已撤销' } });
 });
 

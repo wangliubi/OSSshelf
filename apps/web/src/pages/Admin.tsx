@@ -655,6 +655,8 @@ function AuditLogTab() {
     { value: 'user.login', label: '登录' },
     { value: 'user.logout', label: '登出' },
     { value: 'user.register', label: '注册' },
+    { value: 'user.update', label: '更新用户' },
+    { value: 'user.delete', label: '删除用户' },
     { value: 'file.upload', label: '文件上传' },
     { value: 'file.download', label: '文件下载' },
     { value: 'file.delete', label: '文件删除' },
@@ -668,6 +670,8 @@ function AuditLogTab() {
     { value: 'bucket.delete', label: '删除存储桶' },
     { value: 'admin.user_update', label: '管理用户' },
     { value: 'admin.config_change', label: '配置变更' },
+    { value: 'admin.invite_code_generate', label: '生成邀请码' },
+    { value: 'admin.invite_code_revoke', label: '撤销邀请码' },
   ];
 
   const ACTION_LABELS: Record<string, { label: string; color: string }> = {
@@ -689,6 +693,8 @@ function AuditLogTab() {
     'bucket.delete': { label: '删除存储桶', color: 'bg-rose-500/10 text-rose-500' },
     'admin.user_update': { label: '管理用户', color: 'bg-orange-500/10 text-orange-500' },
     'admin.config_change': { label: '配置变更', color: 'bg-slate-500/10 text-slate-500' },
+    'admin.invite_code_generate': { label: '生成邀请码', color: 'bg-lime-500/10 text-lime-500' },
+    'admin.invite_code_revoke': { label: '撤销邀请码', color: 'bg-red-500/10 text-red-500' },
   };
 
   return (
