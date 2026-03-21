@@ -95,7 +95,7 @@ export function GridItem({
         </button>
         <div
           className={cn(
-            'absolute top-2 right-2 flex flex-wrap gap-0.5 transition-opacity z-10 max-w-[calc(100%-3rem)] bg-black/40 rounded-md p-1',
+            'absolute top-2 right-2 flex flex-wrap gap-0.5 transition-opacity z-10 max-w-[calc(100%-3rem)]',
             isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
           )}
           onClick={(e) => e.stopPropagation()}
