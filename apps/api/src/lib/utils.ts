@@ -74,11 +74,7 @@ export async function buildFilePath(
   return result;
 }
 
-export async function buildFolderPath(
-  db: DrizzleDb,
-  userId: string,
-  parentId: string | null
-): Promise<string> {
+export async function buildFolderPath(db: DrizzleDb, userId: string, parentId: string | null): Promise<string> {
   if (!parentId) {
     return '/';
   }

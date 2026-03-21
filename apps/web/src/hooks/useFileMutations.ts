@@ -43,8 +43,9 @@ export function useFileMutations() {
   const createFolderMutation = useMutation({
     mutationFn: ({ name, parentId, bucketId }: { name: string; parentId: string | null; bucketId: string | null }) =>
       filesApi.createFolder(name, parentId, !parentId ? bucketId : null),
-    onSuccess: (_, { parentId }) => {
-      queryClient.invalidateQueries({ queryKey: ['files', parentId] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
       toast({ title: '创建成功' });
     },
     onError: (e) => toast({ title: '创建失败', description: getErrorMessage(e), variant: 'destructive' }),
@@ -52,8 +53,8 @@ export function useFileMutations() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => filesApi.delete(id),
-    onSuccess: (_, _id, context: any) => {
-      queryClient.invalidateQueries({ queryKey: ['files', context?.parentId] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] });
       queryClient.invalidateQueries({ queryKey: ['trash'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       clearSelection();

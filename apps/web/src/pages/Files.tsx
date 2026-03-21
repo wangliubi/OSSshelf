@@ -283,7 +283,7 @@ export default function Files() {
           delete n[key];
           return n;
         });
-        queryClient.invalidateQueries({ queryKey: ['files', folderId] });
+        queryClient.invalidateQueries({ queryKey: ['files'] });
         queryClient.invalidateQueries({ queryKey: ['stats'] });
         toast({ title: '上传成功' });
       } catch (e: any) {
@@ -1061,7 +1061,9 @@ export default function Files() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <p className="text-sm text-muted-foreground mb-4 truncate">文件夹: {decodeFileName(folderSettingsFile.name)}</p>
+            <p className="text-sm text-muted-foreground mb-4 truncate">
+              文件夹: {decodeFileName(folderSettingsFile.name)}
+            </p>
             <FolderSettings
               folderId={folderSettingsFile.id}
               folderName={decodeFileName(folderSettingsFile.name)}

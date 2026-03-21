@@ -181,18 +181,29 @@ async function buildFolderCache(db: ReturnType<typeof getDb>, userId: string): P
 
 // WebDAV 上传的 name 字段存储 URL 编码格式，displayname 输出时 decode 为可读中文
 function decodeName(name: string): string {
-  try { return decodeURIComponent(name); } catch { return name; }
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
 }
 
 // findFileByPath 策略2中对路径分段安全 decode，用于匹配非 WebDAV 上传的原始中文 name
 function safeDecodeURIComponent(s: string): string {
-  try { return decodeURIComponent(s); } catch { return s; }
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
 }
 
 // 将路径各段统一 encode：先 decode（兼容已编码的 WebDAV name），再 encode，
 // 确保最终 href 格式统一为 URL 编码，与客户端请求路径格式一致。
 function encodePathSegments(path: string): string {
-  return path.split('/').map(seg => seg ? encodeURIComponent(safeDecodeURIComponent(seg)) : seg).join('/');
+  return path
+    .split('/')
+    .map((seg) => (seg ? encodeURIComponent(safeDecodeURIComponent(seg)) : seg))
+    .join('/');
 }
 
 function buildLogicalPathFromCache(cache: FolderCache, parentId: string | null, fileName: string): string {

@@ -60,10 +60,7 @@ const advancedSearchSchema = z.object({
   limit: z.number().int().min(1).max(100).default(50).optional(),
 });
 
-async function getAllDescendantFolderIds(
-  db: DrizzleDb,
-  parentFolderId: string
-): Promise<Set<string>> {
+async function getAllDescendantFolderIds(db: DrizzleDb, parentFolderId: string): Promise<Set<string>> {
   const folderIds = new Set<string>([parentFolderId]);
   const queue = [parentFolderId];
 
@@ -185,7 +182,17 @@ app.get('/', async (c) => {
 
     const taggedIds = fileIdsWithTag.map((t) => t.fileId);
     if (taggedIds.length === 0) {
-      return c.json({ success: true, data: { items: [], total: 0, page: searchParams.page || 1, limit: searchParams.limit || 50, totalPages: 0, aggregations: { types: {}, mimeTypes: {}, sizeRange: { min: 0, max: 0 } } } });
+      return c.json({
+        success: true,
+        data: {
+          items: [],
+          total: 0,
+          page: searchParams.page || 1,
+          limit: searchParams.limit || 50,
+          totalPages: 0,
+          aggregations: { types: {}, mimeTypes: {}, sizeRange: { min: 0, max: 0 } },
+        },
+      });
     }
     conditions.push(inArray(files.id, taggedIds));
   }
@@ -207,8 +214,19 @@ app.get('/', async (c) => {
 
   // total count + 分页结果并发查询，排序分页下推到 SQL
   const [paginatedResults, countRow] = await Promise.all([
-    db.select().from(files).where(and(...conditions)).orderBy(orderExpr).limit(limit).offset(offset).all(),
-    db.select({ count: sql<number>`count(*)` }).from(files).where(and(...conditions)).get(),
+    db
+      .select()
+      .from(files)
+      .where(and(...conditions))
+      .orderBy(orderExpr)
+      .limit(limit)
+      .offset(offset)
+      .all(),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(files)
+      .where(and(...conditions))
+      .get(),
   ]);
 
   const total = countRow?.count ?? 0;
@@ -217,13 +235,14 @@ app.get('/', async (c) => {
 
   // bucketMap 批量查询（一次 inArray 替代 N 次 .get()）
   const bucketIds = [...new Set(paginatedResults.map((f) => f.bucketId).filter(Boolean))] as string[];
-  const bucketRows = bucketIds.length > 0
-    ? await db
-        .select({ id: storageBuckets.id, name: storageBuckets.name, provider: storageBuckets.provider })
-        .from(storageBuckets)
-        .where(inArray(storageBuckets.id, bucketIds))
-        .all()
-    : [];
+  const bucketRows =
+    bucketIds.length > 0
+      ? await db
+          .select({ id: storageBuckets.id, name: storageBuckets.name, provider: storageBuckets.provider })
+          .from(storageBuckets)
+          .where(inArray(storageBuckets.id, bucketIds))
+          .all()
+      : [];
   const bucketMap: Record<string, { id: string; name: string; provider: string }> = {};
   for (const b of bucketRows) bucketMap[b.id] = b;
 
@@ -398,14 +417,16 @@ app.post('/advanced', async (c) => {
   const orderExpr = (sortOrder || 'desc') === 'asc' ? asc(sortCol) : desc(sortCol);
 
   const [items, countRow] = await Promise.all([
-    db.select()
+    db
+      .select()
       .from(files)
       .where(and(...baseConditions))
       .orderBy(orderExpr)
       .limit(limitNum)
       .offset((pageNum - 1) * limitNum)
       .all(),
-    db.select({ count: sql<number>`count(*)` })
+    db
+      .select({ count: sql<number>`count(*)` })
       .from(files)
       .where(and(...baseConditions))
       .get(),
