@@ -553,7 +553,36 @@ export default function Files() {
           <BreadcrumbNav items={breadcrumbs} />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap md:hidden">
+          <Button variant="outline" size="sm" onClick={() => setShowNewFolderDialog(true)}>
+            <FolderPlus className="h-4 w-4" />
+          </Button>
+          <label className="inline-flex">
+            <Button variant="outline" size="sm" asChild>
+              <span>
+                <Upload className="h-4 w-4" />
+              </span>
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              multiple
+              onChange={(e) => {
+                Array.from(e.target.files || []).forEach((file) => {
+                  const key = `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                  handleUpload(file, key);
+                });
+                e.target.value = '';
+              }}
+            />
+          </label>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input

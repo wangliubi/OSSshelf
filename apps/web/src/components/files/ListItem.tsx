@@ -75,9 +75,11 @@ export function ListItem({
       <div className="flex-shrink-0">
         <FileIcon mimeType={file.mimeType} isFolder={file.isFolder} size="md" />
       </div>
-      <div className="flex-1 min-w-0">
+      <div className={cn('min-w-0', isMobile ? 'flex-1' : 'flex-[3]')}>
         <div className="flex items-center gap-2">
-          <p className="font-medium truncate text-sm">{decodeFileName(file.name)}</p>
+          <p className={cn('font-medium text-sm', isMobile ? 'line-clamp-2' : 'truncate')}>
+            {decodeFileName(file.name)}
+          </p>
           {tags && tags.length > 0 && <FileTagsDisplay tags={tags} size="xs" onTagClick={onTagClick} />}
         </div>
         <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
@@ -123,8 +125,10 @@ export function ListItem({
       </div>
       <div
         className={cn(
-          'flex items-center gap-0.5 transition-opacity',
-          isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          'transition-opacity',
+          isMobile
+            ? 'opacity-100 flex flex-wrap gap-0.5 max-w-[80px] justify-end'
+            : 'opacity-0 group-hover:opacity-100 flex items-center gap-0.5'
         )}
         onClick={(e) => e.stopPropagation()}
       >

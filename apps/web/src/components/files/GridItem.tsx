@@ -96,7 +96,7 @@ export function GridItem({
         </button>
       </div>
       <div className="px-3 py-2 border-t">
-        <p className="text-xs font-medium truncate">{decodeFileName(file.name)}</p>
+        <p className={cn('text-xs font-medium', isMobile ? 'line-clamp-2' : 'truncate')}>{decodeFileName(file.name)}</p>
         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
           <p className="text-xs text-muted-foreground">{file.isFolder ? '文件夹' : formatBytes(file.size)}</p>
           {(file as any).bucket && (
@@ -116,8 +116,8 @@ export function GridItem({
       </div>
       <div
         className={cn(
-          'absolute inset-0 bg-black/50 transition-opacity flex items-center justify-center gap-1.5 rounded-xl',
-          isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          'absolute inset-0 bg-black/50 transition-opacity flex items-center justify-center gap-1.5 rounded-xl pointer-events-none',
+          isMobile ? 'opacity-0' : 'opacity-0 group-hover:opacity-100 pointer-events-auto'
         )}
         onClick={(e) => e.stopPropagation()}
       >

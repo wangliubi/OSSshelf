@@ -270,10 +270,9 @@ app.get('/stats', async (c) => {
   const allFiles = await db.select().from(files).where(isNull(files.deletedAt)).all();
   const allBuckets = await db.select().from(storageBuckets).all();
 
-  const totalStorage = allUsers.reduce((sum, u) => sum + (u.storageUsed ?? 0), 0);
+  const totalStorage = allFiles.filter((f) => !f.isFolder).reduce((sum, f) => sum + f.size, 0);
   const totalQuota = allUsers.reduce((sum, u) => sum + (u.storageQuota ?? 0), 0);
 
-  // Per-provider breakdown
   const providerBreakdown: Record<string, { bucketCount: number; storageUsed: number }> = {};
   for (const b of allBuckets) {
     if (!providerBreakdown[b.provider]) {
@@ -288,7 +287,7 @@ app.get('/stats', async (c) => {
     data: {
       userCount: allUsers.length,
       adminCount: allUsers.filter((u) => u.role === 'admin').length,
-      fileCount: allFiles.length,
+      fileCount: allFiles.filter((f) => !f.isFolder).length,
       folderCount: allFiles.filter((f) => f.isFolder).length,
       bucketCount: allBuckets.length,
       totalStorageUsed: totalStorage,
