@@ -190,17 +190,20 @@ function safeDecodeURIComponent(s: string): string {
 }
 
 function buildLogicalPathFromCache(cache: FolderCache, parentId: string | null, fileName: string): string {
+  // 使用数据库原始 name 拼接路径（不 decode），保持与数据库 path 字段一致的格式，
+  // 确保 href 与客户端下次请求的路径匹配（策略1可直接命中）。
+  // displayname 的 decode 在 buildPropfindXML 中单独处理。
   if (!parentId) {
-    return `/${decodeName(fileName)}`;
+    return `/${fileName}`;
   }
 
-  const pathParts: string[] = [decodeName(fileName)];
+  const pathParts: string[] = [fileName];
   let currentId: string | null = parentId;
 
   while (currentId) {
     const folder = cache.get(currentId);
     if (!folder) break;
-    pathParts.unshift(decodeName(folder.name));
+    pathParts.unshift(folder.name);
     currentId = folder.parentId;
   }
 
