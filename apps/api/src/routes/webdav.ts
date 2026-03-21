@@ -179,7 +179,7 @@ async function buildFolderCache(db: ReturnType<typeof getDb>, userId: string): P
   return cache;
 }
 
-// WebDAV 上传的 name 字段存储 URL 编码格式，displayname 和路径重建时统一 decode 为可读中文
+// WebDAV 上传的 name 字段存储 URL 编码格式，displayname 输出时 decode 为可读中文
 function decodeName(name: string): string {
   try { return decodeURIComponent(name); } catch { return name; }
 }
@@ -187,6 +187,12 @@ function decodeName(name: string): string {
 // findFileByPath 策略2中对路径分段安全 decode，用于匹配非 WebDAV 上传的原始中文 name
 function safeDecodeURIComponent(s: string): string {
   try { return decodeURIComponent(s); } catch { return s; }
+}
+
+// 将路径各段统一 encode：先 decode（兼容已编码的 WebDAV name），再 encode，
+// 确保最终 href 格式统一为 URL 编码，与客户端请求路径格式一致。
+function encodePathSegments(path: string): string {
+  return path.split('/').map(seg => seg ? encodeURIComponent(safeDecodeURIComponent(seg)) : seg).join('/');
 }
 
 function buildLogicalPathFromCache(cache: FolderCache, parentId: string | null, fileName: string): string {
@@ -257,7 +263,9 @@ function buildPropfindXML(items: FileRow[], rawPath: string, isRoot: boolean = f
     if (!logicalPath.startsWith('/')) logicalPath = '/' + logicalPath;
     if (file.isFolder && !logicalPath.endsWith('/')) logicalPath += '/';
 
-    const href = DAV_PREFIX + logicalPath;
+    // 对路径各段统一 encode，与 rawPath（自身节点 href）格式保持一致，
+    // 避免客户端因编码不一致把自身节点和子项当成两个不同路径
+    const href = DAV_PREFIX + encodePathSegments(logicalPath);
 
     responses.push(`
   <response>
@@ -333,11 +341,7 @@ async function handlePropfind(c: AppContext, userId: string, path: string, rawPa
     }
   }
 
-  const xmlBody = buildPropfindXML(items, rawPath, true);
-  // DEBUG: log path and all hrefs to diagnose duplicate entry issue
-  const hrefMatches = [...xmlBody.matchAll(/<href>([^<]+)<\/href>/g)].map(m => m[1]);
-  console.log('[PROPFIND DEBUG]', rawPath, 'depth='+depth, 'hrefs:', JSON.stringify(hrefMatches));
-  return new Response(xmlBody, {
+  return new Response(buildPropfindXML(items, rawPath, true), {
     status: 207,
     headers: xmlHeaders,
   });
