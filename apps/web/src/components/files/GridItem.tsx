@@ -59,7 +59,6 @@ export function GridItem({
         'relative bg-card border rounded-xl overflow-hidden cursor-pointer group transition-all hover:shadow-md hover:-translate-y-0.5',
         isSelected && 'ring-2 ring-primary'
       )}
-      onClick={() => onClick(file)}
       onContextMenu={(e) => onContextMenu(e, file)}
     >
       <div className={cn('flex items-center justify-center h-28 relative', !isImage && bg)}>
@@ -94,8 +93,50 @@ export function GridItem({
             {isSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
           </div>
         </button>
+        <div
+          className={cn(
+            'absolute top-2 right-2 flex flex-wrap gap-0.5 transition-opacity z-10 max-w-[calc(100%-3rem)]',
+            isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {canPreview && (
+            <ActionBtn title="预览" onClick={() => onPreview(file)} light>
+              <Eye className="h-3.5 w-3.5" />
+            </ActionBtn>
+          )}
+          {file.isFolder && onUploadLink && (
+            <ActionBtn title="创建上传链接" onClick={() => onUploadLink(file)} light>
+              <Upload className="h-3.5 w-3.5" />
+            </ActionBtn>
+          )}
+          {file.isFolder && (
+            <ActionBtn title="分享文件夹" onClick={() => onShare(file.id)} light>
+              <Share2 className="h-3.5 w-3.5" />
+            </ActionBtn>
+          )}
+          <ActionBtn title="重命名" onClick={() => onRename(file)} light>
+            <Pencil className="h-3.5 w-3.5" />
+          </ActionBtn>
+          <ActionBtn title="移动" onClick={() => onMove(file)} light>
+            <FolderInput className="h-3.5 w-3.5" />
+          </ActionBtn>
+          {!file.isFolder && (
+            <ActionBtn title="下载" onClick={() => onDownload(file)} light>
+              <Download className="h-3.5 w-3.5" />
+            </ActionBtn>
+          )}
+          {!file.isFolder && (
+            <ActionBtn title="分享" onClick={() => onShare(file.id)} light>
+              <Share2 className="h-3.5 w-3.5" />
+            </ActionBtn>
+          )}
+          <ActionBtn title="删除" onClick={() => onDelete(file)} danger light>
+            <Trash2 className="h-3.5 w-3.5" />
+          </ActionBtn>
+        </div>
       </div>
-      <div className="px-3 py-2 border-t">
+      <div className="px-3 py-2 border-t cursor-pointer" onClick={() => onClick(file)}>
         <p className={cn('text-xs font-medium', isMobile ? 'line-clamp-2' : 'truncate')}>{decodeFileName(file.name)}</p>
         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
           <p className="text-xs text-muted-foreground">{file.isFolder ? '文件夹' : formatBytes(file.size)}</p>
@@ -113,48 +154,6 @@ export function GridItem({
           )}
         </div>
         {tags && tags.length > 0 && <FileTagsDisplay tags={tags} size="xs" className="mt-1" onTagClick={onTagClick} />}
-      </div>
-      <div
-        className={cn(
-          'absolute inset-0 bg-black/50 transition-opacity flex items-center justify-center gap-1.5 rounded-xl pointer-events-none',
-          isMobile ? 'opacity-0' : 'opacity-0 group-hover:opacity-100 pointer-events-auto'
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {canPreview && (
-          <ActionBtn title="预览" onClick={() => onPreview(file)} light>
-            <Eye className="h-3.5 w-3.5" />
-          </ActionBtn>
-        )}
-        {file.isFolder && onUploadLink && (
-          <ActionBtn title="创建上传链接" onClick={() => onUploadLink(file)} light>
-            <Upload className="h-3.5 w-3.5" />
-          </ActionBtn>
-        )}
-        {file.isFolder && (
-          <ActionBtn title="分享文件夹" onClick={() => onShare(file.id)} light>
-            <Share2 className="h-3.5 w-3.5" />
-          </ActionBtn>
-        )}
-        <ActionBtn title="重命名" onClick={() => onRename(file)} light>
-          <Pencil className="h-3.5 w-3.5" />
-        </ActionBtn>
-        <ActionBtn title="移动" onClick={() => onMove(file)} light>
-          <FolderInput className="h-3.5 w-3.5" />
-        </ActionBtn>
-        {!file.isFolder && (
-          <ActionBtn title="下载" onClick={() => onDownload(file)} light>
-            <Download className="h-3.5 w-3.5" />
-          </ActionBtn>
-        )}
-        {!file.isFolder && (
-          <ActionBtn title="分享" onClick={() => onShare(file.id)} light>
-            <Share2 className="h-3.5 w-3.5" />
-          </ActionBtn>
-        )}
-        <ActionBtn title="删除" onClick={() => onDelete(file)} danger light>
-          <Trash2 className="h-3.5 w-3.5" />
-        </ActionBtn>
       </div>
     </div>
   );
