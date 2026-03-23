@@ -4,14 +4,14 @@
  *
  * 功能:
  * - 创建/删除文件直链
- * - 设置有效期
+ * - 设置有效期或永久有效
  * - 复制直链URL
  */
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Link, Copy, Trash2, RefreshCw, ExternalLink, Check } from 'lucide-react';
+import { Link, Copy, Trash2, RefreshCw, ExternalLink, Check, Infinity } from 'lucide-react';
 import { directLinkApi, type DirectLinkInfo } from '@/services/api';
 import { decodeFileName } from '@/utils';
 
@@ -26,6 +26,7 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
   const [isPending, setIsPending] = useState(false);
   const [directLink, setDirectLink] = useState<DirectLinkInfo | null>(null);
   const [expiresDays, setExpiresDays] = useState<number | ''>(7);
+  const [isPermanent, setIsPermanent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -38,9 +39,15 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
       const res = await directLinkApi.get(fileId);
       if (res.data.success) {
         setDirectLink(res.data.data ?? null);
-        if (res.data.data?.expiresAt) {
-          const days = Math.ceil((new Date(res.data.data.expiresAt).getTime() - Date.now()) / 86400000);
-          setExpiresDays(days > 0 ? days : '');
+        if (res.data.data) {
+          if (res.data.data.isPermanent) {
+            setIsPermanent(true);
+            setExpiresDays('');
+          } else if (res.data.data.expiresAt) {
+            const days = Math.ceil((new Date(res.data.data.expiresAt).getTime() - Date.now()) / 86400000);
+            setExpiresDays(days > 0 ? days : '');
+            setIsPermanent(false);
+          }
         }
       }
     } catch (e) {
@@ -53,9 +60,7 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
   const handleCreate = async () => {
     setIsPending(true);
     try {
-      const expiresAt = expiresDays
-        ? new Date(Date.now() + Number(expiresDays) * 86400000).toISOString()
-        : undefined;
+      const expiresAt = isPermanent ? null : (expiresDays ? new Date(Date.now() + Number(expiresDays) * 86400000).toISOString() : undefined);
       const res = await directLinkApi.create(fileId, expiresAt);
       if (res.data.success && res.data.data) {
         setDirectLink(res.data.data);
@@ -71,9 +76,7 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
     if (!directLink) return;
     setIsPending(true);
     try {
-      const expiresAt = expiresDays
-        ? new Date(Date.now() + Number(expiresDays) * 86400000).toISOString()
-        : undefined;
+      const expiresAt = isPermanent ? null : (expiresDays ? new Date(Date.now() + Number(expiresDays) * 86400000).toISOString() : undefined);
       const res = await directLinkApi.update(fileId, expiresAt);
       if (res.data.success && res.data.data) {
         setDirectLink(res.data.data);
@@ -92,6 +95,8 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
     try {
       await directLinkApi.delete(fileId);
       setDirectLink(null);
+      setIsPermanent(false);
+      setExpiresDays(7);
     } catch (e) {
       console.error('Failed to delete direct link:', e);
     } finally {
@@ -110,7 +115,8 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '永久有效';
     return new Date(dateStr).toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
@@ -163,25 +169,57 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
               </div>
             </div>
 
-            <div className="text-xs text-muted-foreground">
-              过期时间：{formatDate(directLink.expiresAt)}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>过期时间：</span>
+              {directLink.isPermanent ? (
+                <span className="flex items-center gap-1 text-green-600 font-medium">
+                  <Infinity className="h-3 w-3" />
+                  永久有效
+                </span>
+              ) : (
+                <span>{formatDate(directLink.expiresAt)}</span>
+              )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">延长有效期（天）</label>
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="输入天数"
-                  value={expiresDays}
-                  onChange={(e) => setExpiresDays(e.target.value ? Number(e.target.value) : '')}
-                  className="flex-1"
+                <input
+                  type="checkbox"
+                  id="permanent"
+                  checked={isPermanent}
+                  onChange={(e) => setIsPermanent(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
-                <Button onClick={handleUpdate} disabled={isPending || !expiresDays}>
-                  {isPending ? '更新中...' : '更新'}
-                </Button>
+                <label htmlFor="permanent" className="text-sm font-medium flex items-center gap-1">
+                  <Infinity className="h-3 w-3" />
+                  永久有效
+                </label>
               </div>
+
+              {!isPermanent && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">延长有效期（天）</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="输入天数"
+                      value={expiresDays}
+                      onChange={(e) => setExpiresDays(e.target.value ? Number(e.target.value) : '')}
+                      className="flex-1"
+                    />
+                    <Button onClick={handleUpdate} disabled={isPending || !expiresDays}>
+                      {isPending ? '更新中...' : '更新'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {isPermanent && (
+                <Button onClick={handleUpdate} disabled={isPending} className="w-full">
+                  {isPending ? '更新中...' : '设为永久有效'}
+                </Button>
+              )}
             </div>
 
             <div className="flex justify-between pt-2">
@@ -200,15 +238,33 @@ export function DirectLinkDialog({ fileId, fileName, onClose }: DirectLinkDialog
               创建直链后，任何人都可以通过该链接直接下载文件，无需登录。
             </p>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">有效期（天）</label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="默认 7 天"
-                value={expiresDays}
-                onChange={(e) => setExpiresDays(e.target.value ? Number(e.target.value) : '')}
-              />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="permanent-new"
+                  checked={isPermanent}
+                  onChange={(e) => setIsPermanent(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <label htmlFor="permanent-new" className="text-sm font-medium flex items-center gap-1">
+                  <Infinity className="h-3 w-3" />
+                  永久有效
+                </label>
+              </div>
+
+              {!isPermanent && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">有效期（天）</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="默认 7 天"
+                    value={expiresDays}
+                    onChange={(e) => setExpiresDays(e.target.value ? Number(e.target.value) : '')}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

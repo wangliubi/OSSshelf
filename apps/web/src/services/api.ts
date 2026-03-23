@@ -790,15 +790,16 @@ export interface DirectLinkInfo {
   fileId: string;
   fileName: string;
   directUrl: string;
-  expiresAt: string;
+  expiresAt: string | null;
+  isPermanent: boolean;
 }
 
 export const directLinkApi = {
-  create: (fileId: string, expiresAt?: string) =>
+  create: (fileId: string, expiresAt?: string | null) =>
     api.post<ApiResponse<DirectLinkInfo>>('/api/direct', { fileId, expiresAt }),
   get: (fileId: string) => api.get<ApiResponse<DirectLinkInfo | null>>(`/api/direct/file/${fileId}`),
   delete: (fileId: string) => api.delete<ApiResponse<{ message: string }>>(`/api/direct/${fileId}`),
-  update: (fileId: string, expiresAt?: string) =>
+  update: (fileId: string, expiresAt?: string | null) =>
     api.put<ApiResponse<DirectLinkInfo>>(`/api/direct/${fileId}`, { expiresAt }),
   directUrl: (token: string) => `${import.meta.env.VITE_API_URL || ''}/api/direct/${token}`,
   previewUrl: (token: string) => `${import.meta.env.VITE_API_URL || ''}/api/direct/${token}/preview`,
