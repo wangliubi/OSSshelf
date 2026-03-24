@@ -2,11 +2,14 @@
 
 本文档基于项目实际代码，详细描述 OSSshelf 的系统架构、数据库设计和核心功能实现。
 
+**当前版本**: v3.3.0
+
 ---
 
 ## 📋 目录
 
 - [系统概述](#系统概述)
+- [版本更新](#版本更新)
 - [技术栈](#技术栈)
 - [项目结构](#项目结构)
 - [数据库设计](#数据库设计)
@@ -27,6 +30,31 @@ OSSshelf 是一个基于 Cloudflare 部署的多厂商 OSS 文件管理系统，
 - **后端**: Hono 框架运行在 Cloudflare Workers 上
 - **数据库**: Cloudflare D1 (SQLite) + Drizzle ORM
 - **存储**: S3 兼容协议 + Telegram Bot API
+
+---
+
+## 版本更新
+
+详细的版本更新日志请参阅 [CHANGELOG.md](../CHANGELOG.md)。
+
+### v3.3.0 (2024-03-24)
+
+**新功能**
+
+1. **错误码统一管理**
+   - 所有 API 错误响应采用统一错误码体系
+   - 错误码定义于 `packages/shared/src/constants/errorCodes.ts`
+   - 支持错误码国际化
+
+2. **预览功能增强**
+   - 增强 Markdown 文件预览
+   - 新增 Excel 文件预览
+
+3. **文件版本控制**
+   - 支持文件历史版本管理
+   - 支持版本回滚和对比
+   - 支持版本备注和标签
+   - 新增 `file_versions` 数据库表
 
 ---
 
@@ -109,6 +137,7 @@ ossshelf/
 │   │   │   │   ├── directLink.ts   # 文件直链
 │   │   │   │   ├── tasks.ts        # 上传任务
 │   │   │   │   ├── telegram.ts     # Telegram 存储
+│   │   │   │   ├── versions.ts     # 版本控制 (v3.3.0)
 │   │   │   │   └── webdav.ts       # WebDAV 协议
 │   │   │   ├── types/
 │   │   │   │   ├── env.ts          # 环境变量类型
@@ -400,6 +429,23 @@ ossshelf/
 
 **索引**: `idx_search_history_user`
 
+#### file_versions (文件版本表) - v3.3.0
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `id` | TEXT | - | 主键 |
+| `fileId` | TEXT | - | 文件 ID (外键 → files) |
+| `userId` | TEXT | - | 用户 ID (外键 → users) |
+| `versionNumber` | INTEGER | - | 版本号 |
+| `r2Key` | TEXT | - | 对象存储键 |
+| `size` | INTEGER | - | 文件大小 |
+| `hash` | TEXT | - | 文件哈希 |
+| `note` | TEXT | - | 版本备注 |
+| `tags` | TEXT | - | 版本标签 (JSON) |
+| `createdAt` | TEXT | - | 创建时间 |
+
+**索引**: `idx_file_versions_file`, `idx_file_versions_user`, `idx_file_versions_number`
+
 ---
 
 ## 系统常量
@@ -473,6 +519,7 @@ ossshelf/
 | `/api/search` | search.ts | 文件搜索 |
 | `/api/permissions` | permissions.ts | 权限与标签 |
 | `/api/preview` | preview.ts | 文件预览 |
+| `/api/versions` | versions.ts | 版本控制 (v3.3.0) |
 | `/api/admin` | admin.ts | 管理员接口 |
 | `/api/migrate` | migrate.ts | 存储桶迁移 |
 | `/api/telegram` | telegram.ts | Telegram 存储 |
@@ -621,6 +668,77 @@ ossshelf/
 │  releaseFileRef(fileId)                                      │
 │  ├─ ref_count -= 1                                           │
 │  └─ 若 ref_count == 0，才删除存储对象                        │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 文件版本控制（v3.3.0）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Version Control Flow                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  上传新版本                                                   │
+│  POST /api/versions/create                                   │
+│  ├─ 获取当前文件信息                                          │
+│  ├─ 保存当前版本到 file_versions 表                          │
+│  │   ├─ 记录 r2Key、size、hash                               │
+│  │   ├─ 自动递增 versionNumber                               │
+│  │   └─ 可选添加备注和标签                                    │
+│  ├─ 上传新文件内容                                            │
+│  └─ 更新 files 表的 r2Key、size、hash                        │
+│                                                              │
+│  版本回滚                                                     │
+│  POST /api/versions/<versionId>/restore                      │
+│  ├─ 获取目标版本信息                                          │
+│  ├─ 保存当前版本到历史                                        │
+│  └─ 恢复目标版本的 r2Key、size、hash                         │
+│                                                              │
+│  版本对比                                                     │
+│  GET /api/versions/compare?v1=x&v2=y                         │
+│  └─ 返回两个版本的元数据差异                                  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 错误码管理（v3.3.0）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Error Code System                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  错误码定义 (packages/shared/src/constants/errorCodes.ts)    │
+│  ├─ AUTH_* : 认证相关错误                                    │
+│  │   ├─ AUTH_UNAUTHORIZED (1001)                             │
+│  │   ├─ AUTH_TOKEN_EXPIRED (1002)                            │
+│  │   └─ AUTH_PERMISSION_DENIED (1003)                        │
+│  ├─ FILE_* : 文件相关错误                                    │
+│  │   ├─ FILE_NOT_FOUND (2001)                                │
+│  │   ├─ FILE_TOO_LARGE (2002)                                │
+│  │   └─ FILE_TYPE_NOT_ALLOWED (2003)                         │
+│  ├─ STORAGE_* : 存储相关错误                                 │
+│  │   ├─ STORAGE_EXCEEDED (3001)                              │
+│  │   └─ STORAGE_BUCKET_ERROR (3002)                          │
+│  ├─ SHARE_* : 分享相关错误                                   │
+│  │   ├─ SHARE_EXPIRED (4001)                                 │
+│  │   ├─ SHARE_PASSWORD_REQUIRED (4002)                       │
+│  │   └─ SHARE_DOWNLOAD_LIMIT_EXCEEDED (4003)                 │
+│  └─ SYSTEM_* : 系统相关错误                                  │
+│      ├─ SYSTEM_INTERNAL_ERROR (5001)                         │
+│      └─ SYSTEM_VALIDATION_ERROR (5002)                       │
+│                                                              │
+│  统一响应格式                                                 │
+│  {                                                           │
+│    "success": false,                                         │
+│    "error": {                                                │
+│      "code": "FILE_TOO_LARGE",                               │
+│      "codeNumber": 2002,                                     │
+│      "message": "文件大小超过限制",                           │
+│      "details": { "maxSize": 5368709120 }                    │
+│    }                                                         │
+│  }                                                           │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```

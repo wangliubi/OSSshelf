@@ -2,11 +2,14 @@
 
 本文档基于项目实际配置文件，提供完整的部署指南，确保您能够一次性成功部署 OSSshelf。
 
+**当前版本**: v3.3.0
+
 ---
 
 ## 📋 目录
 
 - [部署架构概览](#部署架构概览)
+- [版本更新说明](#版本更新说明)
 - [环境要求](#环境要求)
 - [快速部署](#快速部署)
 - [GitHub Secrets 配置](#github-secrets-配置)
@@ -61,6 +64,33 @@
 │      用户浏览器            │
 │   https://your.pages.dev  │
 └───────────────────────────┘
+```
+
+---
+
+## 版本更新说明
+
+详细的版本更新日志请参阅 [CHANGELOG.md](../CHANGELOG.md)。
+
+### v3.3.0 (2024-03-24)
+
+本次更新包含以下重要变更：
+
+**数据库迁移**
+- 新增 `file_versions` 表用于文件版本控制
+- 迁移文件：`0008_file_versions.sql`
+
+**升级步骤**
+
+```bash
+# 1. 拉取最新代码
+git pull origin main
+
+# 2. 运行数据库迁移（重要！）
+pnpm db:migrate
+
+# 3. 推送触发部署
+git push origin main
 ```
 
 ---
@@ -177,6 +207,7 @@ pnpm db:migrate
 - `0005_dedup_and_upload_links.sql` - 文件去重和上传链接
 - `0006_upload_progress.sql` - 上传进度追踪
 - `0007_phase7.sql` - 第七阶段功能
+- `0008_file_versions.sql` - 文件版本控制 (v3.3.0)
 
 ### Step 5: 设置加密密钥
 
@@ -784,6 +815,26 @@ curl "https://api.telegram.org/bot<TOKEN>/getMe"
 2. 确认 `VITE_API_URL` 环境变量正确
 3. 检查浏览器控制台错误
 
+#### 9. 版本控制功能不可用（v3.3.0）
+
+**排查步骤**:
+1. 确认已运行 `0008_file_versions.sql` 迁移
+2. 检查数据库中是否存在 `file_versions` 表
+3. 查看 API 日志确认版本接口是否正常
+
+```bash
+# 检查迁移状态
+wrangler d1 execute ossshelf-db --command "SELECT name FROM sqlite_master WHERE type='table' AND name='file_versions'"
+```
+
+#### 10. 预览功能异常（v3.3.0）
+
+**排查步骤**:
+1. 确认前端已更新到最新版本
+2. 检查文件 MIME 类型是否支持
+3. 对于 CAD/3D 模型预览，确认文件格式正确
+4. 查看浏览器控制台是否有渲染错误
+
 ---
 
 ## 安全建议
@@ -926,7 +977,7 @@ pnpm typecheck        # 类型检查
   - [ ] `JWT_SECRET`
   - [ ] `ALERT_TG_BOT_TOKEN`（可选）
   - [ ] `ALERT_TG_CHAT_ID`（可选）
-- [ ] 运行数据库迁移
+- [ ] 运行数据库迁移（包含 v3.3.0 版本控制表）
 - [ ] 设置 ENCRYPTION_KEY Secret
 - [ ] 连接 Cloudflare Pages
 - [ ] 配置前端环境变量 `VITE_API_URL`
@@ -935,6 +986,13 @@ pnpm typecheck        # 类型检查
 ### 更新部署
 
 - [ ] 拉取最新代码
-- [ ] 检查数据库迁移
+- [ ] 检查数据库迁移（特别是 v3.3.0 的 `file_versions` 表）
 - [ ] 推送到 GitHub
 - [ ] 验证自动部署成功
+
+### v3.3.0 升级检查清单
+
+- [ ] 确认已运行 `0008_file_versions.sql` 迁移
+- [ ] 验证版本控制 API 可用 (`/api/versions`)
+- [ ] 确认前端已更新以支持新预览类型
+- [ ] 测试错误码响应格式
