@@ -318,6 +318,7 @@ async function handlePropfind(c: AppContext, userId: string, path: string, rawPa
     parentCondition = isNull(files.parentId);
   } else {
     resolvedParent = await findFileByPath(db, userId, path);
+    console.log(`[PROPFIND] path="${path}" resolvedParent:`, JSON.stringify(resolvedParent ? { id: resolvedParent.id, name: resolvedParent.name, path: resolvedParent.path } : null));
     if (resolvedParent) {
       parentCondition = eq(files.parentId, resolvedParent.id);
     } else {
@@ -374,6 +375,8 @@ async function findFileByPath(db: ReturnType<typeof getDb>, userId: string, path
   // 策略1：直接精确匹配 path 字段（命中 WebDAV 上传的编码路径）
   const normalized = path.endsWith('/') ? path.slice(0, -1) : path;
 
+  console.log(`[findFileByPath] input="${path}" normalized="${normalized}"`);
+
   let file = await db
     .select()
     .from(files)
@@ -388,7 +391,12 @@ async function findFileByPath(db: ReturnType<typeof getDb>, userId: string, path
       .get();
   }
 
-  if (file) return file;
+  if (file) {
+    console.log(`[findFileByPath] strategy1 HIT: id="${file.id}" name="${file.name}" path="${file.path}" isFolder=${file.isFolder}`);
+    return file;
+  }
+
+  console.log(`[findFileByPath] strategy1 MISS, trying strategy2`);
 
   // 策略2：按名称层级递归定位（适配非 WebDAV 上传，name/path 存储的是原始中文）
   // WebDAV 请求路径中中文被编码为 %XX，需要 decode 后才能匹配数据库中的中文名称
@@ -402,6 +410,8 @@ async function findFileByPath(db: ReturnType<typeof getDb>, userId: string, path
     // 同时尝试原始值（匹配 WebDAV 上传的编码名）和 decoded 值（匹配非 WebDAV 上传的中文名）
     const decodedPart = safeDecodeURIComponent(part);
     const nameCandidates = Array.from(new Set([part, decodedPart]));
+
+    console.log(`[findFileByPath] strategy2 part="${part}" decoded="${decodedPart}" parentId=${currentParentId}`);
 
     let found: File | undefined;
     for (const namePart of nameCandidates) {
@@ -417,10 +427,18 @@ async function findFileByPath(db: ReturnType<typeof getDb>, userId: string, path
           )
         )
         .get();
-      if (found) break;
+      if (found) {
+        console.log(`[findFileByPath] strategy2 HIT: namePart="${namePart}" id="${found.id}" path="${found.path}" isFolder=${found.isFolder}`);
+        break;
+      } else {
+        console.log(`[findFileByPath] strategy2 MISS: namePart="${namePart}" parentId=${currentParentId}`);
+      }
     }
 
-    if (!found) return undefined;
+    if (!found) {
+      console.log(`[findFileByPath] strategy2 DEAD END at part="${part}"`);
+      return undefined;
+    }
     currentFile = found;
     currentParentId = currentFile.id;
   }
@@ -594,11 +612,14 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
   const folderName = path.split('/').pop() || 'untitled';
   const parentPath = path.lastIndexOf('/') > 0 ? path.slice(0, path.lastIndexOf('/')) : '/';
 
+  console.log(`[MKCOL] path="${path}" folderName="${folderName}" parentPath="${parentPath}"`);
+
   const db = getDb(c.env.DB);
   let parentId: string | null = null;
 
   if (parentPath !== '/') {
     const parentFolder = await findFileByPath(db, userId, parentPath);
+    console.log(`[MKCOL] parentFolder:`, JSON.stringify(parentFolder ? { id: parentFolder.id, name: parentFolder.name, path: parentFolder.path } : null));
     if (!parentFolder) return new Response('Conflict: parent not found', { status: 409, headers: DAV_BASE_HEADERS });
     parentId = parentFolder.id;
   }
@@ -606,6 +627,7 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
   const normalizedPath = path.endsWith('/') ? path : path + '/';
 
   const existing = await findFileByPath(db, userId, normalizedPath);
+  console.log(`[MKCOL] existing check "${normalizedPath}":`, existing ? `found id=${existing.id}` : 'not found');
   if (existing) return new Response('Method Not Allowed: already exists', { status: 405, headers: DAV_BASE_HEADERS });
 
   const folderId = crypto.randomUUID();
