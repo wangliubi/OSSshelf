@@ -19,6 +19,7 @@ import { resolveBucketConfig } from '../lib/bucketResolver';
 import { tgDownloadFile, type TelegramBotConfig } from '../lib/telegramClient';
 import { isChunkedFileId, tgDownloadChunked } from '../lib/telegramChunked';
 import { decryptSecret } from '../lib/s3client';
+import { throwAppError } from '../middleware/error';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 
@@ -54,9 +55,7 @@ app.get('/file/:fileId', authMiddleware, async (c) => {
     .where(and(eq(files.id, fileId), eq(files.userId, userId), isNull(files.deletedAt)))
     .get();
 
-  if (!file) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
-  }
+  if (!file) throwAppError('FILE_NOT_FOUND');
 
   if (!file.directLinkToken) {
     return c.json({ success: true, data: null });
@@ -102,9 +101,7 @@ app.post('/', authMiddleware, async (c) => {
     .where(and(eq(files.id, fileId), eq(files.userId, userId), isNull(files.deletedAt)))
     .get();
 
-  if (!file) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
-  }
+  if (!file) throwAppError('FILE_NOT_FOUND');
 
   if (file.isFolder) {
     return c.json(
@@ -162,13 +159,8 @@ app.delete('/:fileId', authMiddleware, async (c) => {
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .get();
 
-  if (!file) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
-  }
-
-  if (!file.directLinkToken) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '该文件未创建直链' } }, 404);
-  }
+  if (!file) throwAppError('FILE_NOT_FOUND');
+  if (!file.directLinkToken) throwAppError('FILE_NOT_FOUND', '该文件未创建直链');
 
   const now = new Date().toISOString();
   await db
@@ -201,13 +193,8 @@ app.put('/:fileId', authMiddleware, async (c) => {
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .get();
 
-  if (!file) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件不存在' } }, 404);
-  }
-
-  if (!file.directLinkToken) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '该文件未创建直链' } }, 404);
-  }
+  if (!file) throwAppError('FILE_NOT_FOUND');
+  if (!file.directLinkToken) throwAppError('FILE_NOT_FOUND', '该文件未创建直链');
 
   const now = new Date().toISOString();
   // expiresAt 为 null 表示永久有效，为 undefined 使用默认值
@@ -264,13 +251,9 @@ app.get('/:token/info', async (c) => {
     .where(and(eq(files.directLinkToken, token), isNull(files.deletedAt)))
     .get();
 
-  if (!file) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '直链不存在或已失效' } }, 404);
-  }
-
-  // 永久链接（expiresAt 为 null）不会过期
+  if (!file) throwAppError('FILE_NOT_FOUND');
   if (file.directLinkExpiresAt && new Date(file.directLinkExpiresAt) < new Date()) {
-    return c.json({ success: false, error: { code: ERROR_CODES.SHARE_EXPIRED, message: '直链已过期' } }, 410);
+    throwAppError('SHARE_EXPIRED', '直链已过期');
   }
 
   return c.json({
@@ -296,16 +279,12 @@ app.get('/:token/preview', async (c) => {
     .where(and(eq(files.directLinkToken, token), isNull(files.deletedAt)))
     .get();
 
-  if (!file) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '直链不存在或已失效' } }, 404);
-  }
-
+  if (!file) throwAppError('FILE_NOT_FOUND');
   if (file.directLinkExpiresAt && new Date(file.directLinkExpiresAt) < new Date()) {
-    return c.json({ success: false, error: { code: ERROR_CODES.SHARE_EXPIRED, message: '直链已过期' } }, 410);
+    throwAppError('SHARE_EXPIRED', '直链已过期');
   }
-
   if (file.isFolder) {
-    return c.json({ success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '文件夹不支持预览' } }, 400);
+    throwAppError('FOLDER_VERSION_NOT_SUPPORTED', '文件夹不支持预览');
   }
 
   const encKey = getEncryptionKey(c.env);
@@ -350,9 +329,7 @@ app.get('/:token/preview', async (c) => {
 
   if (c.env.FILES) {
     const obj = await c.env.FILES.get(file.r2Key);
-    if (!obj) {
-      return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件内容不存在' } }, 404);
-    }
+    if (!obj) throwAppError('FILE_CONTENT_NOT_FOUND');
     return new Response(obj.body, { headers: pvHeaders });
   }
 
@@ -374,20 +351,14 @@ app.get('/:token', async (c) => {
     .where(and(eq(files.directLinkToken, token), isNull(files.deletedAt)))
     .get();
 
-  if (!file) {
-    return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '直链不存在或已失效' } }, 404);
-  }
+  if (!file) throwAppError('FILE_NOT_FOUND', '直链不存在或已失效');
 
-  // 永久链接（expiresAt 为 null）不会过期
   if (file.directLinkExpiresAt && new Date(file.directLinkExpiresAt) < new Date()) {
-    return c.json({ success: false, error: { code: ERROR_CODES.SHARE_EXPIRED, message: '直链已过期' } }, 410);
+    throwAppError('SHARE_EXPIRED', '直链已过期');
   }
 
   if (file.isFolder) {
-    return c.json(
-      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '文件夹不支持直链访问' } },
-      400
-    );
+    throwAppError('FOLDER_VERSION_NOT_SUPPORTED', '文件夹不支持直链访问');
   }
 
   const encKey = getEncryptionKey(c.env);
@@ -436,9 +407,7 @@ app.get('/:token', async (c) => {
 
   if (c.env.FILES) {
     const obj = await c.env.FILES.get(file.r2Key);
-    if (!obj) {
-      return c.json({ success: false, error: { code: ERROR_CODES.NOT_FOUND, message: '文件内容不存在' } }, 404);
-    }
+    if (!obj) throwAppError('FILE_CONTENT_NOT_FOUND');
     return new Response(obj.body, { headers: dlHeaders });
   }
 
