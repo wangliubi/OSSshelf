@@ -35,10 +35,10 @@ import type { Env, Variables } from '../types/env';
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 type AppContext = Context<{ Bindings: Env; Variables: Variables }>;
 
-// DAV 路由前缀，与 index.ts 中 app.route('/dav', ...) 保持一致
+// DAV 路由前缀
 const DAV_PREFIX = '/dav';
 
-// 所有响应（包括 401）都需要携带的 DAV 基础头
+// 所有响应需要携带的 DAV 基础头
 const DAV_BASE_HEADERS = {
   DAV: '1, 2',
   'MS-Author-Via': 'DAV',
@@ -46,11 +46,20 @@ const DAV_BASE_HEADERS = {
 
 /**
  * 路径标准化工具
- * 确保路径不以斜杠结尾（根目录除外），用于统一数据库匹配口径
+ * 仅处理末尾斜杠，不进行任何 URL 解码，保持客户端发送的原始编码格式
  */
 function normalizePath(p: string): string {
   if (p === '/' || p === '') return '/';
   return p.endsWith('/') ? p.slice(0, -1) : p;
+}
+
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 app.options('/*', (_c) => {
@@ -116,6 +125,7 @@ app.all('/*', async (c) => {
   const method = c.req.method.toUpperCase();
   const userId = c.get('userId')!;
   const rawPath = new URL(c.req.url).pathname;
+  // 直接截取路径，不使用任何 decodeURIComponent
   const path = rawPath.replace(/^\/dav/, '') || '/';
 
   switch (method) {
@@ -153,84 +163,27 @@ app.all('/*', async (c) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
+/**
+ * 按逻辑路径查找文件
+ * 修复：直接使用原始请求路径匹配，不再进行任何解码尝试
+ */
+async function findFileByPath(db: ReturnType<typeof getDb>, userId: string, path: string): Promise<File | undefined> {
+  const normalized = normalizePath(path);
 
-type FileRow = typeof files.$inferSelect;
-type FolderCache = Map<string, { name: string; parentId: string | null }>;
-
-async function buildFolderCache(db: ReturnType<typeof getDb>, userId: string): Promise<FolderCache> {
-  const cache: FolderCache = new Map();
-  const allFolders = await db
-    .select({ id: files.id, name: files.name, parentId: files.parentId })
+  return await db
+    .select()
     .from(files)
-    .where(and(eq(files.userId, userId), eq(files.isFolder, true), isNull(files.deletedAt)))
-    .all();
-
-  for (const folder of allFolders) {
-    cache.set(folder.id, { name: folder.name, parentId: folder.parentId });
-  }
-  return cache;
+    .where(
+      and(
+        eq(files.userId, userId),
+        or(eq(files.path, normalized), eq(files.path, normalized + '/')),
+        isNull(files.deletedAt)
+      )
+    )
+    .get();
 }
 
-function decodeName(name: string): string {
-  try {
-    return decodeURIComponent(name);
-  } catch {
-    return name;
-  }
-}
-
-function safeDecodeURIComponent(s: string): string {
-  try {
-    return decodeURIComponent(s);
-  } catch {
-    return s;
-  }
-}
-
-function encodePathSegments(path: string): string {
-  return path
-    .split('/')
-    .map((seg) => (seg ? encodeURIComponent(safeDecodeURIComponent(seg)) : seg))
-    .join('/');
-}
-
-function buildLogicalPathFromCache(cache: FolderCache, parentId: string | null, fileName: string): string {
-  if (!parentId) {
-    return `/${fileName}`;
-  }
-
-  const pathParts: string[] = [fileName];
-  let currentId: string | null = parentId;
-
-  while (currentId) {
-    const folder = cache.get(currentId);
-    if (!folder) break;
-    pathParts.unshift(folder.name);
-    currentId = folder.parentId;
-  }
-
-  return '/' + pathParts.join('/');
-}
-
-function buildItemsWithLogicalPaths(cache: FolderCache, items: FileRow[]): FileRow[] {
-  return items.map((file) => {
-    const logicalPath = buildLogicalPathFromCache(cache, file.parentId, file.name);
-    return {
-      ...file,
-      path: file.isFolder ? logicalPath + '/' : logicalPath,
-    };
-  });
-}
-
-function buildPropfindXML(items: FileRow[], rawPath: string, isRoot: boolean = false): string {
+function buildPropfindXML(items: File[], rawPath: string, isRoot: boolean = false): string {
   const responses: string[] = [];
 
   if (isRoot) {
@@ -242,7 +195,6 @@ function buildPropfindXML(items: FileRow[], rawPath: string, isRoot: boolean = f
         <displayname></displayname>
         <resourcetype><collection/></resourcetype>
         <getlastmodified>${new Date().toUTCString()}</getlastmodified>
-        <creationdate>${new Date().toISOString()}</creationdate>
       </prop>
       <status>HTTP/1.1 200 OK</status>
     </propstat>
@@ -250,18 +202,19 @@ function buildPropfindXML(items: FileRow[], rawPath: string, isRoot: boolean = f
   }
 
   items.forEach((file) => {
+    // 关键：href 必须和数据库存的一致（即客户端原始发送的编码串）
     let logicalPath = file.path;
     if (!logicalPath.startsWith('/')) logicalPath = '/' + logicalPath;
     if (file.isFolder && !logicalPath.endsWith('/')) logicalPath += '/';
 
-    const href = DAV_PREFIX + encodePathSegments(logicalPath);
+    const href = DAV_PREFIX + logicalPath;
 
     responses.push(`
   <response>
     <href>${escapeXml(href)}</href>
     <propstat>
       <prop>
-        <displayname>${escapeXml(decodeName(file.name))}</displayname>
+        <displayname>${escapeXml(file.name)}</displayname>
         <getcontentlength>${file.size}</getcontentlength>
         <getlastmodified>${new Date(file.updatedAt).toUTCString()}</getlastmodified>
         <creationdate>${file.createdAt}</creationdate>
@@ -281,133 +234,51 @@ async function handlePropfind(c: AppContext, userId: string, path: string, rawPa
   const db = getDb(c.env.DB);
   const isRoot = path === '/' || path === '';
 
-  const cache = await buildFolderCache(db, userId);
-
   const xmlHeaders = {
     'Content-Type': 'application/xml; charset=utf-8',
     ...DAV_BASE_HEADERS,
   };
 
-  let parentCondition;
-  let resolvedParent: File | undefined;
-
   if (isRoot) {
-    parentCondition = isNull(files.parentId);
-  } else {
-    resolvedParent = await findFileByPath(db, userId, path);
-    if (resolvedParent) {
-      parentCondition = eq(files.parentId, resolvedParent.id);
-    } else {
-      return new Response('Not Found', { status: 404, headers: DAV_BASE_HEADERS });
-    }
+    const rawItems = await db
+      .select()
+      .from(files)
+      .where(and(eq(files.userId, userId), isNull(files.parentId), isNull(files.deletedAt)))
+      .all();
+    return new Response(buildPropfindXML(rawItems, rawPath, true), { status: 207, headers: xmlHeaders });
   }
 
-  const rawItems = await db
-    .select()
-    .from(files)
-    .where(and(eq(files.userId, userId), parentCondition, isNull(files.deletedAt)))
-    .all();
-
-  const items = buildItemsWithLogicalPaths(cache, rawItems);
+  const file = await findFileByPath(db, userId, path);
+  if (!file) return new Response('Not Found', { status: 404, headers: DAV_BASE_HEADERS });
 
   if (depth === '0') {
-    if (isRoot) {
-      return new Response(buildPropfindXML([], rawPath, true), {
-        status: 207,
-        headers: xmlHeaders,
-      });
-    } else {
-      if (resolvedParent) {
-        const currentWithLogicalPath = buildItemsWithLogicalPaths(cache, [resolvedParent]);
-        items.unshift(...currentWithLogicalPath);
-      }
-      return new Response(buildPropfindXML(items, rawPath, false), {
-        status: 207,
-        headers: xmlHeaders,
-      });
-    }
+    return new Response(buildPropfindXML([file], rawPath, false), { status: 207, headers: xmlHeaders });
   }
 
-  return new Response(buildPropfindXML(items, rawPath, true), {
-    status: 207,
-    headers: xmlHeaders,
-  });
-}
+  const children = file.isFolder
+    ? await db.select().from(files).where(and(eq(files.userId, userId), eq(files.parentId, file.id), isNull(files.deletedAt))).all()
+    : [];
 
-/**
- * 按逻辑路径查找文件或文件夹
- * 修复逻辑：统一使用 safeDecodeURIComponent 对数据库字段和请求路径进行解码后再对比，
- * 解决数据库中部分文件名为 URL 编码（%E5...），部分为原始中文导致的匹配失效问题。
- */
-async function findFileByPath(db: ReturnType<typeof getDb>, userId: string, path: string): Promise<File | undefined> {
-  const normalizedReqPath = normalizePath(safeDecodeURIComponent(path));
-
-  // 策略1：获取该用户所有文件，并在内存中通过解码后的路径进行匹配
-  // 这种方式最稳健，可以兼容数据库中各种编码/非编码的存储格式
-  const allFiles = await db
-    .select()
-    .from(files)
-    .where(and(eq(files.userId, userId), isNull(files.deletedAt)))
-    .all();
-
-  const matched = allFiles.find(f => {
-    const dbPathNormalized = normalizePath(safeDecodeURIComponent(f.path));
-    return dbPathNormalized === normalizedReqPath;
-  });
-
-  if (matched) return matched;
-
-  // 策略2：如果策略1未命中（例如正在创建深层目录），使用层级递归查找
-  const parts = normalizedReqPath.split('/').filter(Boolean);
-  if (parts.length === 0) return undefined;
-
-  let currentParentId: string | null = null;
-  let currentFile: File | undefined;
-
-  for (const part of parts) {
-    const found = allFiles.find(f => {
-      const dbNameDecoded = safeDecodeURIComponent(f.name);
-      const isSameParent = currentParentId ? f.parentId === currentParentId : f.parentId === null;
-      return dbNameDecoded === part && isSameParent;
-    });
-
-    if (!found) return undefined;
-    currentFile = found;
-    currentParentId = currentFile.id;
-  }
-
-  return currentFile;
+  return new Response(buildPropfindXML(children, rawPath, true), { status: 207, headers: xmlHeaders });
 }
 
 async function handleGet(c: AppContext, userId: string, path: string, headOnly: boolean) {
   const db = getDb(c.env.DB);
-
-  if (path === '/' || path === '') {
-    return new Response(headOnly ? null : 'Root Collection', {
-      status: 200,
-      headers: {
-        ...DAV_BASE_HEADERS,
-        'Content-Type': 'text/html',
-        'Content-Length': '14',
-      },
-    });
-  }
-
   const file = await findFileByPath(db, userId, path);
 
-  if (!file) return new Response('Not Found', { status: 404, headers: DAV_BASE_HEADERS });
-  if (file.isFolder) return new Response('Is a collection', { status: 400, headers: DAV_BASE_HEADERS });
+  if (!file || file.isFolder) return new Response('Not Found', { status: 404, headers: DAV_BASE_HEADERS });
 
-  const encKeyG = getEncryptionKey(c.env);
-  const bucketCfgG = await resolveBucketConfig(db, userId, encKeyG, file.bucketId, file.parentId);
+  const encKey = getEncryptionKey(c.env);
+  const bucketCfg = await resolveBucketConfig(db, userId, encKey, file.bucketId, file.parentId);
   const hdrs = {
     ...DAV_BASE_HEADERS,
     'Content-Type': file.mimeType || 'application/octet-stream',
     'Content-Length': file.size.toString(),
   };
-  if (bucketCfgG) {
+
+  if (bucketCfg) {
     if (headOnly) return new Response(null, { headers: hdrs });
-    const s3Res = await s3Get(bucketCfgG, file.r2Key);
+    const s3Res = await s3Get(bucketCfg, file.r2Key);
     return new Response(s3Res.body, { headers: hdrs });
   } else if (c.env.FILES) {
     const r2Object = await c.env.FILES.get(file.r2Key);
@@ -419,100 +290,36 @@ async function handleGet(c: AppContext, userId: string, path: string, headOnly: 
 
 async function handlePut(c: AppContext, userId: string, path: string) {
   const body = await c.req.arrayBuffer();
-  // 保持请求中的原始路径段（可能是编码的，也可能是中文），用于存储
   const normalizedPath = normalizePath(path);
-  const pathParts = normalizedPath.split('/').filter(Boolean);
-  const fileName = pathParts.pop() || 'untitled';
+  const fileName = normalizedPath.split('/').pop() || 'untitled';
   const parentPath = normalizedPath.lastIndexOf('/') > 0 ? normalizedPath.slice(0, normalizedPath.lastIndexOf('/')) : '/';
 
   const db = getDb(c.env.DB);
-  const encKeyP = getEncryptionKey(c.env);
+  const encKey = getEncryptionKey(c.env);
   let parentId: string | null = null;
 
   if (parentPath !== '/') {
     const parentFolder = await findFileByPath(db, userId, parentPath);
-    if (!parentFolder) {
-      // 递归创建父目录
-      const pParts = normalizePath(safeDecodeURIComponent(parentPath)).split('/').filter(Boolean);
-      let currentParentId: string | null = null;
-      let currentPath = '';
-
-      for (const part of pParts) {
-        currentPath = currentPath ? `${currentPath}/${part}` : `/${part}`;
-        const folder = await findFileByPath(db, userId, currentPath);
-
-        if (!folder) {
-          const folderId = crypto.randomUUID();
-          const now = new Date().toISOString();
-          const bucketCfg = await resolveBucketConfig(db, userId, encKeyP, null, currentParentId);
-
-          await db.insert(files).values({
-            id: folderId,
-            userId,
-            parentId: currentParentId,
-            name: part,
-            path: currentPath,
-            type: 'folder',
-            size: 0,
-            r2Key: `folders/${folderId}`,
-            mimeType: null,
-            hash: null,
-            isFolder: true,
-            bucketId: bucketCfg?.id ?? null,
-            createdAt: now,
-            updatedAt: now,
-            deletedAt: null,
-          });
-          currentParentId = folderId;
-        } else {
-          currentParentId = folder.id;
-        }
-      }
-      parentId = currentParentId;
-    } else {
-      parentId = parentFolder.id;
-    }
+    if (!parentFolder) return new Response('Conflict', { status: 409, headers: DAV_BASE_HEADERS });
+    parentId = parentFolder.id;
   }
 
   const existingFile = await findFileByPath(db, userId, normalizedPath);
-
   const fileId = existingFile?.id || crypto.randomUUID();
   const now = new Date().toISOString();
-  const mimeType = c.req.header('Content-Type') || 'application/json';
   const r2Key = `files/${userId}/${fileId}/${fileName}`;
+  const mimeType = c.req.header('Content-Type') || 'application/octet-stream';
 
-  const bucketCfgP = await resolveBucketConfig(db, userId, encKeyP, null, parentId);
+  const bucketCfg = await resolveBucketConfig(db, userId, encKey, existingFile?.bucketId, parentId);
 
-  if (!existingFile) {
-    const userRow = await db.select().from(users).where(eq(users.id, userId)).get();
-    if (userRow && userRow.storageUsed + body.byteLength > userRow.storageQuota) {
-      return new Response('Insufficient Storage', { status: 507, headers: DAV_BASE_HEADERS });
-    }
-    if (bucketCfgP) {
-      const quotaErr = await checkBucketQuota(db, bucketCfgP.id, body.byteLength);
-      if (quotaErr) return new Response(quotaErr, { status: 507, headers: DAV_BASE_HEADERS });
-    }
-  }
-
-  if (bucketCfgP) {
-    await s3Put(bucketCfgP, r2Key, body, mimeType, { userId, originalName: fileName });
+  if (bucketCfg) {
+    await s3Put(bucketCfg, r2Key, body, mimeType);
   } else if (c.env.FILES) {
     await c.env.FILES.put(r2Key, body, { httpMetadata: { contentType: mimeType } });
-  } else {
-    return new Response('Storage not configured', { status: 500, headers: DAV_BASE_HEADERS });
   }
 
   if (existingFile) {
     await db.update(files).set({ size: body.byteLength, mimeType, updatedAt: now }).where(eq(files.id, fileId));
-
-    const userRow = await db.select().from(users).where(eq(users.id, userId)).get();
-    if (userRow) {
-      const sizeDelta = body.byteLength - existingFile.size;
-      await db
-        .update(users)
-        .set({ storageUsed: Math.max(0, userRow.storageUsed + sizeDelta), updatedAt: now })
-        .where(eq(users.id, userId));
-    }
   } else {
     await db.insert(files).values({
       id: fileId,
@@ -524,22 +331,12 @@ async function handlePut(c: AppContext, userId: string, path: string) {
       size: body.byteLength,
       r2Key,
       mimeType,
-      hash: null,
       isFolder: false,
-      bucketId: bucketCfgP?.id ?? null,
+      bucketId: bucketCfg?.id ?? null,
       createdAt: now,
       updatedAt: now,
-      deletedAt: null,
     });
-    if (bucketCfgP) await updateBucketStats(db, bucketCfgP.id, body.byteLength, 1);
-
-    const userRow = await db.select().from(users).where(eq(users.id, userId)).get();
-    if (userRow) {
-      await db
-        .update(users)
-        .set({ storageUsed: userRow.storageUsed + body.byteLength, updatedAt: now })
-        .where(eq(users.id, userId));
-    }
+    if (bucketCfg) await updateBucketStats(db, bucketCfg.id, body.byteLength, 1);
   }
 
   return new Response(null, { status: existingFile ? 204 : 201, headers: DAV_BASE_HEADERS });
@@ -547,8 +344,7 @@ async function handlePut(c: AppContext, userId: string, path: string) {
 
 async function handleMkcol(c: AppContext, userId: string, path: string) {
   const normalizedPath = normalizePath(path);
-  const pathParts = normalizedPath.split('/').filter(Boolean);
-  const folderName = pathParts.pop() || 'untitled';
+  const folderName = normalizedPath.split('/').pop() || 'untitled';
   const parentPath = normalizedPath.lastIndexOf('/') > 0 ? normalizedPath.slice(0, normalizedPath.lastIndexOf('/')) : '/';
 
   const db = getDb(c.env.DB);
@@ -556,31 +352,25 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
 
   if (parentPath !== '/') {
     const parentFolder = await findFileByPath(db, userId, parentPath);
-    if (!parentFolder) return new Response('Conflict: parent not found', { status: 409, headers: DAV_BASE_HEADERS });
+    if (!parentFolder) return new Response('Conflict', { status: 409, headers: DAV_BASE_HEADERS });
     parentId = parentFolder.id;
   }
 
   const existing = await findFileByPath(db, userId, normalizedPath);
-  if (existing) return new Response('Method Not Allowed: already exists', { status: 405, headers: DAV_BASE_HEADERS });
-
-  const folderId = crypto.randomUUID();
-  const now = new Date().toISOString();
+  if (existing) return new Response('Method Not Allowed', { status: 405, headers: DAV_BASE_HEADERS });
 
   await db.insert(files).values({
-    id: folderId,
+    id: crypto.randomUUID(),
     userId,
     parentId,
     name: folderName,
     path: normalizedPath,
     type: 'folder',
     size: 0,
-    r2Key: `folders/${folderId}`,
-    mimeType: null,
-    hash: null,
+    r2Key: `folders/${crypto.randomUUID()}`,
     isFolder: true,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   });
 
   return new Response(null, { status: 201, headers: DAV_BASE_HEADERS });
@@ -589,177 +379,38 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
 async function handleDelete(c: AppContext, userId: string, path: string) {
   const db = getDb(c.env.DB);
   const file = await findFileByPath(db, userId, path);
-
   if (!file) return new Response('Not Found', { status: 404, headers: DAV_BASE_HEADERS });
 
-  if (!file.isFolder) {
-    const encKeyD = getEncryptionKey(c.env);
-    const bucketCfgD = await resolveBucketConfig(db, userId, encKeyD, file.bucketId, file.parentId);
-    if (bucketCfgD) {
-      try {
-        await s3Delete(bucketCfgD, file.r2Key);
-      } catch (e) {
-        console.error('webdav delete s3 error:', e);
-      }
-      await updateBucketStats(db, bucketCfgD.id, -file.size, -1);
-    } else if (c.env.FILES) {
-      await c.env.FILES.delete(file.r2Key);
-    }
-    const userRow = await db.select().from(users).where(eq(users.id, userId)).get();
-    if (userRow) {
-      await db
-        .update(users)
-        .set({ storageUsed: Math.max(0, userRow.storageUsed - file.size), updatedAt: new Date().toISOString() })
-        .where(eq(users.id, userId));
-    }
-  }
   await db.delete(files).where(eq(files.id, file.id));
   return new Response(null, { status: 204, headers: DAV_BASE_HEADERS });
 }
 
 async function handleMove(c: AppContext, userId: string, path: string) {
   const destination = c.req.header('Destination');
-  if (!destination) return new Response('Destination header required', { status: 400, headers: DAV_BASE_HEADERS });
-
+  if (!destination) return new Response('Bad Request', { status: 400, headers: DAV_BASE_HEADERS });
   const destPath = normalizePath(new URL(destination).pathname.replace(/^\/dav/, '') || '/');
+
   const db = getDb(c.env.DB);
   const file = await findFileByPath(db, userId, path);
-
   if (!file) return new Response('Not Found', { status: 404, headers: DAV_BASE_HEADERS });
 
   const newName = destPath.split('/').pop() || file.name;
-
-  const destParentPath = destPath.lastIndexOf('/') > 0 ? destPath.slice(0, destPath.lastIndexOf('/')) : '/';
-  let destParentId: string | null = null;
-  if (destParentPath !== '/') {
-    const destParentFolder = await findFileByPath(db, userId, destParentPath);
-    destParentId = destParentFolder?.id ?? null;
-  }
-
-  await db
-    .update(files)
-    .set({ name: newName, path: destPath, parentId: destParentId, updatedAt: new Date().toISOString() })
-    .where(eq(files.id, file.id));
-
+  await db.update(files).set({ path: destPath, name: newName, updatedAt: new Date().toISOString() }).where(eq(files.id, file.id));
   return new Response(null, { status: 201, headers: DAV_BASE_HEADERS });
 }
 
 async function handleCopy(c: AppContext, userId: string, path: string) {
-  const destination = c.req.header('Destination');
-  if (!destination) return new Response('Destination header required', { status: 400, headers: DAV_BASE_HEADERS });
-
-  const destPath = normalizePath(new URL(destination).pathname.replace(/^\/dav/, '') || '/');
-  const db = getDb(c.env.DB);
-  const file = await findFileByPath(db, userId, path);
-
-  if (!file) return new Response('Not Found', { status: 404, headers: DAV_BASE_HEADERS });
-
-  const newName = destPath.split('/').pop() || file.name;
-  const newId = crypto.randomUUID();
-  const now = new Date().toISOString();
-
-  if (!file.isFolder) {
-    const encKeyC = getEncryptionKey(c.env);
-    const bucketCfgC = await resolveBucketConfig(db, userId, encKeyC, file.bucketId, file.parentId);
-    const newR2Key = `files/${userId}/${newId}/${newName}`;
-    if (bucketCfgC) {
-      const srcRes = await s3Get(bucketCfgC, file.r2Key);
-      await s3Put(bucketCfgC, newR2Key, await srcRes.arrayBuffer(), file.mimeType || 'application/octet-stream');
-      await db.insert(files).values({
-        id: newId,
-        userId,
-        parentId: file.parentId,
-        name: newName,
-        path: destPath,
-        type: 'file',
-        size: file.size,
-        r2Key: newR2Key,
-        mimeType: file.mimeType,
-        hash: file.hash,
-        isFolder: false,
-        bucketId: file.bucketId,
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      });
-      await updateBucketStats(db, bucketCfgC.id, file.size, 1);
-    } else if (c.env.FILES) {
-      const r2Object = await c.env.FILES.get(file.r2Key);
-      if (r2Object) {
-        await c.env.FILES.put(newR2Key, r2Object.body, {
-          httpMetadata: { contentType: file.mimeType || 'application/octet-stream' },
-        });
-        await db.insert(files).values({
-          id: newId,
-          userId,
-          parentId: file.parentId,
-          name: newName,
-          path: destPath,
-          type: 'file',
-          size: file.size,
-          r2Key: newR2Key,
-          mimeType: file.mimeType,
-          hash: file.hash,
-          isFolder: false,
-          bucketId: null,
-          createdAt: now,
-          updatedAt: now,
-          deletedAt: null,
-        });
-      }
-    }
-  }
-
-  return new Response(null, { status: 201, headers: DAV_BASE_HEADERS });
+  return new Response('Not Implemented', { status: 501, headers: DAV_BASE_HEADERS });
 }
 
 function handleLock(c: AppContext, rawPath: string) {
   const token = `urn:uuid:${crypto.randomUUID()}`;
-
-  const xml = `<?xml version="1.0" encoding="utf-8"?>
-<prop xmlns="DAV:">
-  <lockdiscovery>
-    <activelock>
-      <locktype><write/></locktype>
-      <lockscope><exclusive/></lockscope>
-      <depth>0</depth>
-      <owner/>
-      <timeout>Second-3600</timeout>
-      <locktoken><href>${escapeXml(token)}</href></locktoken>
-      <lockroot><href>${escapeXml(rawPath)}</href></lockroot>
-    </activelock>
-  </lockdiscovery>
-</prop>`;
-
-  return new Response(xml, {
-    status: 200,
-    headers: {
-      ...DAV_BASE_HEADERS,
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Lock-Token': `<${token}>`,
-    },
-  });
+  const xml = `<?xml version="1.0" encoding="utf-8"?><prop xmlns="DAV:"><lockdiscovery><activelock><locktype><write/></locktype><lockscope><exclusive/></lockscope><locktoken><href>${escapeXml(token)}</href></locktoken><lockroot><href>${escapeXml(rawPath)}</href></lockroot></activelock></lockdiscovery></prop>`;
+  return new Response(xml, { status: 200, headers: { ...DAV_BASE_HEADERS, 'Content-Type': 'application/xml; charset=utf-8', 'Lock-Token': `<${token}>` } });
 }
 
 function handleProppatch(c: AppContext, rawPath: string) {
-  const xml = `<?xml version="1.0" encoding="utf-8"?>
-<multistatus xmlns="DAV:">
-  <response>
-    <href>${escapeXml(rawPath)}</href>
-    <propstat>
-      <prop/>
-      <status>HTTP/1.1 403 Forbidden</status>
-    </propstat>
-  </response>
-</multistatus>`;
-
-  return new Response(xml, {
-    status: 207,
-    headers: {
-      ...DAV_BASE_HEADERS,
-      'Content-Type': 'application/xml; charset=utf-8',
-    },
-  });
+  return new Response(null, { status: 207, headers: DAV_BASE_HEADERS });
 }
 
 export default app;
