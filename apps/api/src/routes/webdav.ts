@@ -612,7 +612,9 @@ async function handleMkcol(c: AppContext, userId: string, path: string) {
   const normalizedPath = cleanPath + '/';
 
   const existing = await findFileByPath(db, userId, normalizedPath);
-  if (existing) return new Response('Method Not Allowed: already exists', { status: 405, headers: DAV_BASE_HEADERS });
+  if (existing) {
+    return new Response(null, { status: 200, headers: DAV_BASE_HEADERS });
+  }
 
   const folderId = crypto.randomUUID();
   const now = new Date().toISOString();
