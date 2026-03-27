@@ -424,8 +424,10 @@ export function ShareFilePreview({
   const docxContainerRef = useRef<HTMLDivElement>(null);
   const pptxContainerRef = useRef<HTMLDivElement>(null);
   const pptxViewerRef = useRef<ReturnType<typeof initPptxPreview> | null>(null);
+  const pptxLoadedRef = useRef(false);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const pdfLoadedRef = useRef(false);
   const excelContainerRef = useRef<HTMLDivElement>(null);
   const epubViewerRef = useRef<ePub.Book | null>(null);
   const epubRenditionRef = useRef<ePub.Rendition | null>(null);
@@ -531,12 +533,14 @@ export function ShareFilePreview({
     setPptLoading(false);
     setPptUseOnlineViewer(true);
     setPptOnlineError(false);
+    pptxLoadedRef.current = false;
     setOfficeUseOnlineViewer(true);
     setOfficeOnlineError(false);
     setPdfLoading(false);
     setPdfCurrentPage(1);
     setPdfTotalPages(0);
     setExcelLoading(false);
+    pdfLoadedRef.current = false;
 
     // 销毁上一个文件的 epub/pdf 资源
     if (epubRenditionRef.current) {
@@ -965,7 +969,9 @@ export function ShareFilePreview({
     if (!isPdf) return;
     const container = pdfContainerRef.current;
     if (!container) return;
+    if (pdfLoadedRef.current) return;
 
+    pdfLoadedRef.current = true;
     setPdfLoading(true);
     try {
       const response = await fetch(getPreviewUrl());
@@ -982,6 +988,7 @@ export function ShareFilePreview({
     } catch (err) {
       console.error('PDF preview error:', err);
       setLoadError(true);
+      pdfLoadedRef.current = false;
     } finally {
       setPdfLoading(false);
     }
@@ -989,8 +996,11 @@ export function ShareFilePreview({
 
   const pdfContainerCallbackRef = useCallback((node: HTMLDivElement | null) => {
     (pdfContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    if (node && isPdf) {
-      setTimeout(() => loadPdfPreview(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (isPdf && pdfContainerRef.current && !pdfLoadedRef.current) {
+      loadPdfPreview();
     }
   }, [isPdf, loadPdfPreview]);
 
@@ -1055,7 +1065,9 @@ export function ShareFilePreview({
   const loadPptPreview = useCallback(async () => {
     const container = pptxContainerRef.current;
     if (!isPpt || !container) return;
+    if (pptxLoadedRef.current) return;
 
+    pptxLoadedRef.current = true;
     setPptLoading(true);
     try {
       const response = await fetch(getPreviewUrl());
@@ -1075,17 +1087,19 @@ export function ShareFilePreview({
     } catch (err) {
       console.error('PPT preview error:', err);
       setLoadError(true);
+      pptxLoadedRef.current = false;
     } finally {
       setPptLoading(false);
     }
   }, [isPpt, getPreviewUrl]);
 
-  // ref callback：容器挂载时触发PPT加载
   const pptxContainerCallbackRef = useCallback((node: HTMLDivElement | null) => {
     (pptxContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    // 容器挂载后，检查是否需要加载PPT
-    if (node && isPpt && !pptUseOnlineViewer) {
-      setTimeout(() => loadPptPreview(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (isPpt && !pptUseOnlineViewer && pptxContainerRef.current && !pptxLoadedRef.current) {
+      loadPptPreview();
     }
   }, [isPpt, pptUseOnlineViewer, loadPptPreview]);
 

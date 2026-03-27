@@ -418,8 +418,10 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   const docxContainerRef = useRef<HTMLDivElement>(null);
   const pptxContainerRef = useRef<HTMLDivElement>(null);
   const pptxViewerRef = useRef<ReturnType<typeof initPptxPreview> | null>(null);
+  const pptxLoadedRef = useRef(false);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const pdfLoadedRef = useRef(false);
   const excelContainerRef = useRef<HTMLDivElement>(null);
   const epubViewerRef = useRef<ePub.Book | null>(null);
   const epubRenditionRef = useRef<ePub.Rendition | null>(null);
@@ -524,12 +526,14 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     setPptLoading(false);
     setPptUseOnlineViewer(true);
     setPptOnlineError(false);
+    pptxLoadedRef.current = false;
     setOfficeUseOnlineViewer(true);
     setOfficeOnlineError(false);
     setPdfLoading(false);
     setPdfCurrentPage(1);
     setPdfTotalPages(0);
     setExcelLoading(false);
+    pdfLoadedRef.current = false;
 
     // 销毁上一个文件的 epub/pdf 资源
     if (epubRenditionRef.current) {
@@ -1008,7 +1012,9 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     if (!isPdf || !resolvedUrl) return;
     const container = pdfContainerRef.current;
     if (!container) return;
+    if (pdfLoadedRef.current) return;
 
+    pdfLoadedRef.current = true;
     setPdfLoading(true);
     try {
       const response = await fetch(resolvedUrl);
@@ -1025,6 +1031,7 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     } catch (err) {
       console.error('PDF preview error:', err);
       setLoadError(true);
+      pdfLoadedRef.current = false;
     } finally {
       setPdfLoading(false);
     }
@@ -1032,8 +1039,11 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
 
   const pdfContainerCallbackRef = useCallback((node: HTMLDivElement | null) => {
     (pdfContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    if (node && isPdf && resolvedUrl) {
-      setTimeout(() => loadPdfPreview(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (isPdf && resolvedUrl && pdfContainerRef.current && !pdfLoadedRef.current) {
+      loadPdfPreview();
     }
   }, [isPdf, resolvedUrl, loadPdfPreview]);
 
@@ -1060,7 +1070,9 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   const loadPptPreview = useCallback(async () => {
     const container = pptxContainerRef.current;
     if (!isPpt || !resolvedUrl || !container) return;
+    if (pptxLoadedRef.current) return;
 
+    pptxLoadedRef.current = true;
     setPptLoading(true);
     try {
       const response = await fetch(resolvedUrl);
@@ -1080,17 +1092,19 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     } catch (err) {
       console.error('PPT preview error:', err);
       setLoadError(true);
+      pptxLoadedRef.current = false;
     } finally {
       setPptLoading(false);
     }
   }, [isPpt, resolvedUrl]);
 
-  // ref callback：容器挂载时触发PPT加载
   const pptxContainerCallbackRef = useCallback((node: HTMLDivElement | null) => {
     (pptxContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    // 容器挂载后，检查是否需要加载PPT
-    if (node && isPpt && !pptUseOnlineViewer && resolvedUrl) {
-      setTimeout(() => loadPptPreview(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (isPpt && !pptUseOnlineViewer && resolvedUrl && pptxContainerRef.current && !pptxLoadedRef.current) {
+      loadPptPreview();
     }
   }, [isPpt, pptUseOnlineViewer, resolvedUrl, loadPptPreview]);
 
