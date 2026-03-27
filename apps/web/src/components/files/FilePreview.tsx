@@ -418,7 +418,6 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   const docxContainerRef = useRef<HTMLDivElement>(null);
   const pptxContainerRef = useRef<HTMLDivElement>(null);
   const pptxViewerRef = useRef<ReturnType<typeof initPptxPreview> | null>(null);
-  const pptxLoadPendingRef = useRef(false);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
   const excelContainerRef = useRef<HTMLDivElement>(null);
@@ -982,30 +981,6 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     setEpubShowToc(false);
   }, []);
 
-  const loadPdfPreview = useCallback(async () => {
-    if (!isPdf || !resolvedUrl || !pdfContainerRef.current) return;
-
-    setPdfLoading(true);
-    try {
-      const response = await fetch(resolvedUrl);
-      if (!response.ok) {
-        throw new Error(`文件加载失败: ${response.status}`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-
-      const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      pdfDocRef.current = pdfDoc;
-      setPdfTotalPages(pdfDoc.numPages);
-
-      await renderPdfPage(1);
-    } catch (err) {
-      console.error('PDF preview error:', err);
-      setLoadError(true);
-    } finally {
-      setPdfLoading(false);
-    }
-  }, [isPdf, resolvedUrl]);
-
   const renderPdfPage = useCallback(async (pageNum: number) => {
     if (!pdfDocRef.current || !pdfContainerRef.current) return;
 
@@ -1028,6 +1003,39 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     } as any).promise;
     setPdfCurrentPage(pageNum);
   }, [zoomLevel]);
+
+  const loadPdfPreview = useCallback(async () => {
+    if (!isPdf || !resolvedUrl) return;
+    const container = pdfContainerRef.current;
+    if (!container) return;
+
+    setPdfLoading(true);
+    try {
+      const response = await fetch(resolvedUrl);
+      if (!response.ok) {
+        throw new Error(`文件加载失败: ${response.status}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+
+      const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      pdfDocRef.current = pdfDoc;
+      setPdfTotalPages(pdfDoc.numPages);
+
+      await renderPdfPage(1);
+    } catch (err) {
+      console.error('PDF preview error:', err);
+      setLoadError(true);
+    } finally {
+      setPdfLoading(false);
+    }
+  }, [isPdf, resolvedUrl, renderPdfPage]);
+
+  const pdfContainerCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    (pdfContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    if (node && isPdf && resolvedUrl) {
+      setTimeout(() => loadPdfPreview(), 0);
+    }
+  }, [isPdf, resolvedUrl, loadPdfPreview]);
 
   const pdfPrevPage = useCallback(() => {
     if (pdfCurrentPage > 1) {
@@ -1077,16 +1085,14 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     }
   }, [isPpt, resolvedUrl]);
 
-  // ref callback：容器挂载时检查是否有待加载任务
+  // ref callback：容器挂载时触发PPT加载
   const pptxContainerCallbackRef = useCallback((node: HTMLDivElement | null) => {
     (pptxContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    // 容器挂载后，检查是否有待加载的PPT
-    if (node && pptxLoadPendingRef.current && resolvedUrl) {
-      pptxLoadPendingRef.current = false;
-      // 使用 setTimeout 确保 DOM 完全渲染
+    // 容器挂载后，检查是否需要加载PPT
+    if (node && isPpt && !pptUseOnlineViewer && resolvedUrl) {
       setTimeout(() => loadPptPreview(), 0);
     }
-  }, [resolvedUrl, loadPptPreview]);
+  }, [isPpt, pptUseOnlineViewer, resolvedUrl, loadPptPreview]);
 
   const handleZoomIn = useCallback(() => {
     setZoomLevel((prev) => Math.min(prev + 25, 200));
@@ -1149,24 +1155,7 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     }
   }, [isEpub, resolvedUrl, loadEpubPreview]);
 
-  useEffect(() => {
-    if (isPdf && resolvedUrl) {
-      loadPdfPreview();
-    }
-  }, [isPdf, resolvedUrl, loadPdfPreview]);
-
-  // PPTX 本地预览：等容器挂载 + resolvedUrl 都就绪后触发
-  // 使用 pptxLoadPendingRef 标记待加载状态，确保容器挂载后再加载
-  useEffect(() => {
-    if (!isPpt || pptUseOnlineViewer || !resolvedUrl) return;
-    // 标记有待加载任务
-    pptxLoadPendingRef.current = true;
-    // 尝试立即加载（如果容器已挂载）
-    if (pptxContainerRef.current) {
-      loadPptPreview();
-      pptxLoadPendingRef.current = false;
-    }
-  }, [isPpt, pptUseOnlineViewer, resolvedUrl, loadPptPreview]);
+  // PPTX 本地预览：通过 ref callback 触发加载（见 pptxContainerCallbackRef）
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1436,7 +1425,7 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
                     <div className="text-muted-foreground text-sm">正在加载 PDF...</div>
                   </div>
                 ) : (
-                  <div ref={pdfContainerRef} className="flex flex-col items-center" />
+                  <div ref={pdfContainerCallbackRef} className="flex flex-col items-center" />
                 )}
               </div>
             </div>
