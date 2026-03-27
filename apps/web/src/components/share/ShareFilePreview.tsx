@@ -1425,14 +1425,13 @@ export function ShareFilePreview({
                   </Button>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto p-4">
-                {pdfLoading ? (
-                  <div className="flex items-center justify-center h-full">
+              <div className="flex-1 overflow-auto p-4 relative">
+                {pdfLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
                     <div className="text-muted-foreground text-sm">正在加载 PDF...</div>
                   </div>
-                ) : (
-                  <div ref={pdfContainerCallbackRef} className="flex flex-col items-center" />
                 )}
+                <div ref={pdfContainerCallbackRef} className="flex flex-col items-center" />
               </div>
             </div>
           ) : isMarkdown ? (
@@ -1605,28 +1604,22 @@ export function ShareFilePreview({
                   )}
                 </div>
               ) : isPpt ? (
-                <>
-                  {pptLoading && !pptUseOnlineViewer && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10">
+                <div className="w-full h-full relative">
+                  {pptLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-20">
                       <div className="text-muted-foreground text-sm">正在加载幻灯片...</div>
                     </div>
                   )}
-                  {loadError ? (
+                  {loadError && (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
                       {renderOfficeFallback('PowerPoint 加载失败')}
                     </div>
-                  ) : pptUseOnlineViewer && getPreviewUrl() && !pptOnlineError ? (
+                  )}
+                  {pptUseOnlineViewer && getPreviewUrl() && !pptOnlineError && (
                     <div className="w-full h-full flex flex-col bg-white dark:bg-gray-900">
                       <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
-                        <span className="text-sm text-muted-foreground">
-                          在线预览
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPptUseOnlineViewer(false)}
-                          className="text-xs"
-                        >
+                        <span className="text-sm text-muted-foreground">在线预览</span>
+                        <Button variant="ghost" size="sm" onClick={() => setPptUseOnlineViewer(false)} className="text-xs">
                           切换到本地预览
                         </Button>
                       </div>
@@ -1637,38 +1630,21 @@ export function ShareFilePreview({
                         onError={() => setPptOnlineError(true)}
                       />
                     </div>
-                  ) : (
-                    <div className="w-full h-full flex flex-col relative">
-                      {pptLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10">
-                          <div className="text-muted-foreground text-sm">正在加载幻灯片...</div>
-                        </div>
-                      )}
-                      {!pptUseOnlineViewer && !pptOnlineError && getPreviewUrl() && (
-                        <div className="absolute top-2 right-2 z-20">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setPptUseOnlineViewer(true)}
-                            className="text-xs bg-white/80 dark:bg-gray-900/80"
-                          >
-                            在线预览
-                          </Button>
-                        </div>
-                      )}
-                      {loadError ? (
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                          {renderOfficeFallback('PowerPoint 加载失败')}
-                        </div>
-                      ) : (
-                        <div
-                          ref={pptxContainerCallbackRef}
-                          className="w-full h-full overflow-auto bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
-                        />
-                      )}
-                    </div>
                   )}
-                </>
+                  <div className={`w-full h-full flex flex-col relative ${pptUseOnlineViewer && !pptOnlineError ? 'hidden' : ''}`}>
+                    {!pptUseOnlineViewer && !pptOnlineError && getPreviewUrl() && (
+                      <div className="absolute top-2 right-2 z-20">
+                        <Button variant="ghost" size="sm" onClick={() => setPptUseOnlineViewer(true)} className="text-xs bg-white/80 dark:bg-gray-900/80">
+                          在线预览
+                        </Button>
+                      </div>
+                    )}
+                    <div
+                      ref={pptxContainerCallbackRef}
+                      className="w-full h-full overflow-auto bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
+                    />
+                  </div>
+                </div>
               ) : (
                 renderOfficeFallback()
               )}
