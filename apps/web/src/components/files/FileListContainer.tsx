@@ -63,7 +63,7 @@ export function FileListContainer({
   onTagClick,
   onUploadLink,
   onDirectLink,
-  onVersionHistory,
+  onVersionHistory: _onVersionHistory,
 }: FileListContainerProps) {
   const hasImages = imageFiles.length > 0;
 

@@ -11,7 +11,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { bucketsApi, telegramApi, PROVIDER_META, type StorageBucket, type BucketFormData } from '@/services/api';
+import { bucketsApi, PROVIDER_META, type StorageBucket, type BucketFormData } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';

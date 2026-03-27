@@ -116,10 +116,43 @@ const CODE_LANGUAGE_MAP: Record<string, string> = {
 };
 
 const CODE_EXTENSIONS = new Set([
-  'js', 'jsx', 'ts', 'tsx', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp',
-  'cs', 'php', 'swift', 'kt', 'scala', 'r', 'sql', 'sh', 'bash', 'zsh', 'json',
-  'xml', 'yaml', 'yml', 'css', 'scss', 'less', 'html', 'vue', 'dockerfile',
-  'makefile', 'toml', 'ini', 'env'
+  'js',
+  'jsx',
+  'ts',
+  'tsx',
+  'py',
+  'rb',
+  'go',
+  'rs',
+  'java',
+  'c',
+  'cpp',
+  'h',
+  'hpp',
+  'cs',
+  'php',
+  'swift',
+  'kt',
+  'scala',
+  'r',
+  'sql',
+  'sh',
+  'bash',
+  'zsh',
+  'json',
+  'xml',
+  'yaml',
+  'yml',
+  'css',
+  'scss',
+  'less',
+  'html',
+  'vue',
+  'dockerfile',
+  'makefile',
+  'toml',
+  'ini',
+  'env',
 ]);
 
 function getLanguageFromExtension(filename: string): string {
@@ -200,7 +233,7 @@ function getThemeColor(theme?: number): string | undefined {
   return THEME_COLORS[theme];
 }
 
-function getExcelCellStyle(cell: XLSX.CellObject, workbook: XLSX.WorkBook): React.CSSProperties {
+function getExcelCellStyle(cell: XLSX.CellObject, _workbook: XLSX.WorkBook): React.CSSProperties {
   const styles: React.CSSProperties = {};
   if (!cell.s) return styles;
 
@@ -323,8 +356,7 @@ function renderExcelSheetWithStyles(
 
       const value = cell ? formatExcelValue(cell) : '';
       const tag = row === range.s.r ? 'th' : 'td';
-      const extraAttrs =
-        rowSpan > 1 ? ` rowspan="${rowSpan}"` : '' + (colSpan > 1 ? ` colspan="${colSpan}"` : '');
+      const extraAttrs = rowSpan > 1 ? ` rowspan="${rowSpan}"` : '' + (colSpan > 1 ? ` colspan="${colSpan}"` : '');
 
       cells.push(`<${tag} style="${styleStr}"${extraAttrs}>${value || '&nbsp;'}</${tag}>`);
     }
@@ -350,7 +382,6 @@ export function ShareFilePreview({
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [officeLoading, setOfficeLoading] = useState(false);
   const [officeError, setOfficeError] = useState<string | null>(null);
-  const [excelData, setExcelData] = useState<XLSX.WorkSheet | null>(null);
   const [excelLoading, setExcelLoading] = useState(false);
   const [excelWorkbook, setExcelWorkbook] = useState<XLSX.WorkBook | null>(null);
   const [activeSheetName, setActiveSheetName] = useState<string | null>(null);
@@ -398,7 +429,6 @@ export function ShareFilePreview({
     setPreviewInfo(null);
     setOfficeLoading(false);
     setOfficeError(null);
-    setExcelData(null);
     setExcelLoading(false);
     setExcelWorkbook(null);
     setActiveSheetName(null);
@@ -513,7 +543,6 @@ export function ShareFilePreview({
         setActiveSheetName(firstSheetName);
         const worksheet = workbook.Sheets[firstSheetName];
         if (worksheet) {
-          setExcelData(worksheet);
           const { html } = renderExcelSheetWithStyles(worksheet, workbook);
           setExcelHtml(html);
         }
@@ -534,7 +563,6 @@ export function ShareFilePreview({
       setActiveSheetName(sheetName);
       const worksheet = excelWorkbook.Sheets[sheetName];
       if (worksheet) {
-        setExcelData(worksheet);
         const { html } = renderExcelSheetWithStyles(worksheet, excelWorkbook);
         setExcelHtml(html);
       }
@@ -862,7 +890,10 @@ export function ShareFilePreview({
               )}
             </div>
           ) : isText ? (
-            <div className="w-full h-full overflow-auto bg-white dark:bg-gray-900 p-4" style={{ fontSize: `${zoomLevel}%` }}>
+            <div
+              className="w-full h-full overflow-auto bg-white dark:bg-gray-900 p-4"
+              style={{ fontSize: `${zoomLevel}%` }}
+            >
               {textContent !== null ? (
                 <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed text-gray-800 dark:text-gray-200">
                   {textContent}

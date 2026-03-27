@@ -8,7 +8,7 @@
  * - 实时进度轮询（每 2s 刷新）
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { bucketsApi, migrateApi, type StorageBucket, type MigrationStatus } from '@/services/api';
 import { Button } from '@/components/ui/Button';

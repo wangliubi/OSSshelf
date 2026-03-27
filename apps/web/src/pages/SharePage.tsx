@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { FileIcon } from '@/components/files/FileIcon';
 import { formatBytes, formatDate, decodeFileName } from '@/utils';
+import { isPreviewable } from '@/utils/fileTypes';
 import { ShareFilePreview } from '@/components/share/ShareFilePreview';
 import {
   Download,
@@ -129,18 +130,7 @@ function DownloadSharePage({ shareId }: { shareId: string }) {
   const allSelected = fileChildren.length > 0 && fileChildren.every((c) => selectedIds.has(c.id));
 
   const canPreviewFile = (mimeType: string | null) => {
-    if (!mimeType) return false;
-    return (
-      mimeType.startsWith('image/') ||
-      mimeType.startsWith('video/') ||
-      mimeType.startsWith('audio/') ||
-      mimeType === 'application/pdf' ||
-      mimeType.startsWith('text/') ||
-      mimeType === 'application/json' ||
-      mimeType === 'application/xml' ||
-      mimeType === 'application/javascript' ||
-      mimeType === 'application/typescript'
-    );
+    return isPreviewable(mimeType);
   };
 
   const trigger = (url: string, name: string) => {
