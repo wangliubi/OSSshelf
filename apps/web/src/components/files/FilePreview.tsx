@@ -24,6 +24,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { renderAsync } from 'docx-preview';
+import { init as initPptxPreview } from 'pptx-preview';
 import * as XLSX from 'xlsx';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -63,13 +64,6 @@ import { cn } from '@/utils';
 
 import 'highlight.js/styles/github-dark.css';
 import 'katex/dist/katex.min.css';
-
-interface PptSlide {
-  title: string;
-  content: string[];
-  bulletPoints: string[];
-  notes: string;
-}
 
 interface PreviewInfo {
   id: string;
@@ -407,6 +401,8 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   const [excelHtml, setExcelHtml] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const docxContainerRef = useRef<HTMLDivElement>(null);
+  const pptxContainerRef = useRef<HTMLDivElement>(null);
+  const pptxViewerRef = useRef<ReturnType<typeof initPptxPreview> | null>(null);
 
   const [zoomLevel, setZoomLevel] = useState(100);
   const [windowSize, setWindowSize] = useState<WindowSize>('medium');
@@ -421,10 +417,7 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   const [epubContent, setEpubContent] = useState<string>('');
   const [epubLoading, setEpubLoading] = useState(false);
   const [epubCurrentChapter, setEpubCurrentChapter] = useState(0);
-  const [pptSlides, setPptSlides] = useState<PptSlide[]>([]);
-  const [pptCurrentSlide, setPptCurrentSlide] = useState(0);
   const [pptLoading, setPptLoading] = useState(false);
-  const [pptShowThumbnails, setPptShowThumbnails] = useState(true);
   const [pptUseOnlineViewer, setPptUseOnlineViewer] = useState(true);
   const [pptOnlineError, setPptOnlineError] = useState(false);
   const [officeUseOnlineViewer, setOfficeUseOnlineViewer] = useState(true);
@@ -493,10 +486,7 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
     setEpubContent('');
     setEpubLoading(false);
     setEpubCurrentChapter(0);
-    setPptSlides([]);
-    setPptCurrentSlide(0);
     setPptLoading(false);
-    setPptShowThumbnails(true);
     setPptUseOnlineViewer(true);
     setPptOnlineError(false);
     setOfficeUseOnlineViewer(true);
@@ -836,7 +826,7 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   );
 
   const loadPptPreview = useCallback(async () => {
-    if (!isPpt || !resolvedUrl) return;
+    if (!isPpt || !resolvedUrl || !pptxContainerRef.current) return;
 
     setPptLoading(true);
     try {
@@ -845,61 +835,15 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
         throw new Error(`文件加载失败: ${response.status}`);
       }
       const arrayBuffer = await response.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
 
-      const slides: PptSlide[] = [];
-      let slideIndex = 1;
-      let slideFile = zip.file(`ppt/slides/slide${slideIndex}.xml`);
-      
-      while (slideFile) {
-        const slideContent = await slideFile.async('string');
-        
-        const titleMatch = slideContent.match(/<p:sp[^>]*>[\s\S]*?<a:t>([^<]*)<\/a:t>[\s\S]*?<\/p:sp>/i);
-        const title = titleMatch?.[1]?.trim() || `幻灯片 ${slideIndex}`;
-        
-        const textMatches = slideContent.matchAll(/<a:t>([^<]*)<\/a:t>/gi);
-        const allTexts: string[] = [];
-        for (const match of textMatches) {
-          const text = match[1];
-          if (text && text.trim()) {
-            allTexts.push(text.trim());
-          }
-        }
-        
-        const bulletMatches = slideContent.matchAll(/<a:p[^>]*>[\s\S]*?<a:t>([^<]*)<\/a:t>[\s\S]*?<\/a:p>/gi);
-        const bulletPoints: string[] = [];
-        for (const match of bulletMatches) {
-          const text = match[1]?.trim();
-          if (text && text !== title && !bulletPoints.includes(text)) {
-            bulletPoints.push(text);
-          }
-        }
-        
-        let notes = '';
-        const notesFile = zip.file(`ppt/notesSlides/notesSlide${slideIndex}.xml`);
-        if (notesFile) {
-          const notesContent = await notesFile.async('string');
-          const notesMatches = notesContent.matchAll(/<a:t>([^<]*)<\/a:t>/gi);
-          const notesTexts: string[] = [];
-          for (const match of notesMatches) {
-            const text = match[1]?.trim();
-            if (text) notesTexts.push(text);
-          }
-          notes = notesTexts.join(' ');
-        }
-        
-        slides.push({
-          title,
-          content: allTexts,
-          bulletPoints: bulletPoints.length > 0 ? bulletPoints : allTexts.slice(1),
-          notes,
+      if (!pptxViewerRef.current) {
+        pptxViewerRef.current = initPptxPreview(pptxContainerRef.current, {
+          width: 960,
+          height: 540,
         });
-        
-        slideIndex++;
-        slideFile = zip.file(`ppt/slides/slide${slideIndex}.xml`);
       }
 
-      setPptSlides(slides);
+      await pptxViewerRef.current.preview(arrayBuffer);
     } catch (err) {
       console.error('PPT preview error:', err);
       setLoadError(true);
@@ -934,16 +878,16 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   }, []);
 
   useEffect(() => {
-    if (isWord && resolvedUrl) {
+    if (isWord && resolvedUrl && !officeUseOnlineViewer) {
       loadDocxPreview();
     }
-  }, [isWord, resolvedUrl, loadDocxPreview]);
+  }, [isWord, resolvedUrl, loadDocxPreview, officeUseOnlineViewer]);
 
   useEffect(() => {
-    if (isExcel && resolvedUrl) {
+    if (isExcel && resolvedUrl && !officeUseOnlineViewer) {
       loadExcelPreview();
     }
-  }, [isExcel, resolvedUrl, loadExcelPreview]);
+  }, [isExcel, resolvedUrl, loadExcelPreview, officeUseOnlineViewer]);
 
   useEffect(() => {
     if (isCsv && resolvedUrl) {
@@ -970,25 +914,18 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   }, [isEpub, resolvedUrl, loadEpubPreview]);
 
   useEffect(() => {
-    if (isPpt && resolvedUrl) {
+    if (isPpt && resolvedUrl && !pptUseOnlineViewer) {
       loadPptPreview();
     }
-  }, [isPpt, resolvedUrl, loadPptPreview]);
+  }, [isPpt, resolvedUrl, loadPptPreview, pptUseOnlineViewer]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-      if (isPpt && !pptUseOnlineViewer && pptSlides.length > 0) {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-          setPptCurrentSlide((prev) => Math.max(0, prev - 1));
-        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
-          setPptCurrentSlide((prev) => Math.min(pptSlides.length - 1, prev + 1));
-        }
-      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onClose, isPpt, pptUseOnlineViewer, pptSlides.length]);
+  }, [onClose]);
 
   const getOfficeIcon = () => {
     const mimeType = file.mimeType || '';
@@ -1193,12 +1130,55 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
               </div>
             </div>
           ) : isPdf ? (
-            <iframe
-              src={resolvedUrl}
-              className="w-full h-full border-0"
-              title={decodeFileName(file.name)}
-              onError={() => setLoadError(true)}
-            />
+            <div className="w-full h-full flex flex-col bg-gray-100 dark:bg-gray-800">
+              <div className="flex items-center justify-between px-4 py-2 border-b bg-white dark:bg-gray-900 shadow-sm">
+                <span className="text-sm text-muted-foreground">PDF 文档</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleZoomOut}
+                    disabled={zoomLevel <= 50}
+                    className="h-7 w-7 p-0"
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground w-12 text-center">{zoomLevel}%</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleZoomIn}
+                    disabled={zoomLevel >= 200}
+                    className="h-7 w-7 p-0"
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleZoomReset}
+                    className="h-7 px-2 text-xs"
+                  >
+                    重置
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-4">
+                <div className="flex justify-center">
+                  <iframe
+                    src={resolvedUrl}
+                    className="border-0 rounded-lg shadow-xl bg-white"
+                    style={{
+                      width: `${zoomLevel * 8}px`,
+                      height: `${zoomLevel * 11.3}px`,
+                      minHeight: '600px',
+                    }}
+                    title={decodeFileName(file.name)}
+                    onError={() => setLoadError(true)}
+                  />
+                </div>
+              </div>
+            </div>
           ) : isMarkdown ? (
             <div
               className="w-full h-full overflow-auto p-6 prose dark:prose-invert max-w-none prose-table:border-collapse prose-th:border prose-th:border-border prose-th:bg-muted prose-th:p-2 prose-td:border prose-td:border-border prose-td:p-2 prose-tr:even:bg-muted/30"
@@ -1402,118 +1382,36 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
                         onError={() => setPptOnlineError(true)}
                       />
                     </div>
-                  ) : pptSlides.length > 0 ? (
-                    <div className="w-full h-full flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-                      {pptShowThumbnails && pptSlides.length > 1 && (
-                        <div className="w-48 border-r border-white/10 bg-black/20 flex flex-col">
-                          <div className="p-2 text-xs text-white/50 border-b border-white/10">幻灯片</div>
-                          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                            {pptSlides.map((slide, index) => (
-                              <button
-                                key={index}
-                                onClick={() => setPptCurrentSlide(index)}
-                                className={cn(
-                                  'w-full text-left p-3 rounded-lg transition-all duration-200',
-                                  'border backdrop-blur-sm',
-                                  pptCurrentSlide === index
-                                    ? 'bg-white/20 border-white/30 text-white shadow-lg'
-                                    : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                                )}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-white/20">
-                                    {index + 1}
-                                  </span>
-                                  <span className="text-xs truncate flex-1">{slide.title}</span>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col relative">
+                      {pptLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10">
+                          <div className="text-muted-foreground text-sm">正在加载幻灯片...</div>
                         </div>
                       )}
-                      <div className="flex-1 flex flex-col min-w-0">
-                        <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-black/20">
-                          <div className="flex items-center gap-3">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setPptShowThumbnails(!pptShowThumbnails)}
-                              className="text-white/70 hover:text-white hover:bg-white/10"
-                            >
-                              {pptShowThumbnails ? '隐藏缩略图' : '显示缩略图'}
-                            </Button>
-                            {pptOnlineError || !resolvedUrl ? null : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setPptUseOnlineViewer(true)}
-                                className="text-white/70 hover:text-white hover:bg-white/10"
-                              >
-                                在线预览
-                              </Button>
-                            )}
-                          </div>
-                          <span className="text-sm text-white/60">
-                            {pptCurrentSlide + 1} / {pptSlides.length}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
-                              onClick={() => setPptCurrentSlide((prev) => Math.max(0, prev - 1))}
-                              disabled={pptCurrentSlide <= 0}
-                            >
-                              <ChevronLeft className="h-5 w-5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
-                              onClick={() => setPptCurrentSlide((prev) => Math.min(pptSlides.length - 1, prev + 1))}
-                              disabled={pptCurrentSlide >= pptSlides.length - 1}
-                            >
-                              <ChevronRight className="h-5 w-5" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
-                          <div
-                            className="w-full max-w-4xl aspect-video bg-white rounded-xl shadow-2xl overflow-hidden"
-                            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'center center' }}
+                      {!pptUseOnlineViewer && !pptOnlineError && resolvedUrl && (
+                        <div className="absolute top-2 right-2 z-20">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPptUseOnlineViewer(true)}
+                            className="text-xs bg-white/80 dark:bg-gray-900/80"
                           >
-                            <div className="h-full flex flex-col p-8 bg-gradient-to-br from-white to-gray-50">
-                              <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-4 border-b-2 border-blue-500">
-                                {pptSlides[pptCurrentSlide]?.title || `幻灯片 ${pptCurrentSlide + 1}`}
-                              </h2>
-                              <div className="flex-1 overflow-auto">
-                                {pptSlides[pptCurrentSlide]?.bulletPoints.length ? (
-                                  <ul className="space-y-3">
-                                    {pptSlides[pptCurrentSlide].bulletPoints.map((point, idx) => (
-                                      <li key={idx} className="flex items-start gap-3 text-gray-700">
-                                        <span className="mt-2 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                        <span className="text-lg leading-relaxed">{point}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="text-gray-500 text-center py-12">此幻灯片无内容</p>
-                                )}
-                              </div>
-                              {pptSlides[pptCurrentSlide]?.notes && (
-                                <div className="mt-6 pt-4 border-t border-gray-200">
-                                  <p className="text-xs text-gray-400 italic">
-                                    备注: {pptSlides[pptCurrentSlide].notes}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                            在线预览
+                          </Button>
                         </div>
-                      </div>
+                      )}
+                      {loadError ? (
+                        <div className="absolute inset-0 flex items-center justify-center z-10">
+                          {renderOfficeFallback('PowerPoint 加载失败')}
+                        </div>
+                      ) : (
+                        <div
+                          ref={pptxContainerRef}
+                          className="w-full h-full overflow-auto bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
+                        />
+                      )}
                     </div>
-                  ) : (
-                    renderOfficeFallback('PowerPoint 无内容或格式不支持')
                   )}
                 </>
               ) : (
