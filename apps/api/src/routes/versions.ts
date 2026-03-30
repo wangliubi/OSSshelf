@@ -21,6 +21,7 @@ import { updateUserStorage } from '../lib/bucketResolver';
 import { s3Get, s3Delete } from '../lib/s3client';
 import { resolveBucketConfig } from '../lib/bucketResolver';
 import { getEncryptionKey } from '../lib/crypto';
+import { isVersionableFile } from '../lib/versionManager';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -56,6 +57,21 @@ app.get('/:fileId/versions', async (c) => {
     throwAppError('FOLDER_VERSION_NOT_SUPPORTED');
   }
 
+  if (!isVersionableFile(file.mimeType, file.name)) {
+    return c.json({
+      success: true,
+      data: {
+        versions: [],
+        currentVersion: file.currentVersion ?? 1,
+        maxVersions: file.maxVersions ?? 10,
+        versionRetentionDays: file.versionRetentionDays ?? 30,
+        total: 0,
+        versionable: false,
+        message: '此文件类型不支持版本控制，仅支持可编辑的文本文件',
+      },
+    });
+  }
+
   const versions = await db
     .select({
       id: fileVersions.id,
@@ -83,6 +99,7 @@ app.get('/:fileId/versions', async (c) => {
       maxVersions,
       versionRetentionDays,
       total: versions.length,
+      versionable: true,
     },
   });
 });

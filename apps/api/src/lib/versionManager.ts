@@ -21,8 +21,13 @@ import type { Env } from '../types/env';
 import { s3Delete } from './s3client';
 import { resolveBucketConfig } from './bucketResolver';
 import { getEncryptionKey } from './crypto';
+import { isEditableFile } from '@osshelf/shared';
 
 type FileRecord = typeof files.$inferSelect;
+
+const isVersionableFile = isEditableFile;
+
+export { isEditableFile, isVersionableFile };
 
 export interface CreateVersionOptions {
   changeSummary?: string;
@@ -70,6 +75,16 @@ export async function createVersionSnapshot(
       created: false,
       skipped: true,
       reason: '文件夹不支持版本控制',
+    };
+  }
+
+  if (!isVersionableFile(file.mimeType, file.name)) {
+    return {
+      versionId: '',
+      version: file.currentVersion ?? 1,
+      created: false,
+      skipped: true,
+      reason: '此文件类型不支持版本控制，仅支持可编辑的文本文件',
     };
   }
 
@@ -328,10 +343,12 @@ async function deleteStorageObject(
  * 检查文件是否需要创建版本快照
  *
  * 用于判断是否需要触发版本创建逻辑。
+ * 仅可编辑的文本文件支持版本控制。
  */
 export async function shouldCreateVersion(db: DrizzleDb, fileId: string, newHash: string): Promise<boolean> {
   const file = await db.select().from(files).where(eq(files.id, fileId)).get();
   if (!file || file.isFolder) return false;
+  if (!isVersionableFile(file.mimeType, file.name)) return false;
   if (!file.hash) return true;
 
   return file.hash !== newHash;

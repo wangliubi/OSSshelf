@@ -1199,13 +1199,16 @@ app.put('/:id/content', async (c) => {
 
   const bucketConfig = await resolveBucketConfig(db, file.userId, encKey, file.bucketId, file.parentId);
 
+  const currentVersion = file.currentVersion ?? 1;
+  const newR2Key = `files/${file.userId}/${fileId}/v${currentVersion + 1}_${file.name}`;
+
   if (bucketConfig) {
-    await s3Put(bucketConfig, file.r2Key, contentArrayBuffer, file.mimeType || 'text/plain', {
+    await s3Put(bucketConfig, newR2Key, contentArrayBuffer, file.mimeType || 'text/plain', {
       userId,
       originalName: file.name,
     });
   } else if (c.env.FILES) {
-    await c.env.FILES.put(file.r2Key, contentArrayBuffer, {
+    await c.env.FILES.put(newR2Key, contentArrayBuffer, {
       httpMetadata: { contentType: file.mimeType || 'text/plain' },
       customMetadata: { userId, originalName: file.name },
     });
@@ -1219,6 +1222,7 @@ app.put('/:id/content', async (c) => {
   await db
     .update(files)
     .set({
+      r2Key: newR2Key,
       size: newSize,
       hash: newHash,
       updatedAt: now,

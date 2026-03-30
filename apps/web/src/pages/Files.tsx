@@ -1228,6 +1228,10 @@ export default function Files() {
           onEdit={() => {
             // 编辑功能已集成在 FilePreview 内部
           }}
+          onVersionHistory={(file) => {
+            setPreviewFile(null);
+            setVersionHistoryFile(file);
+          }}
         />
       )}
 

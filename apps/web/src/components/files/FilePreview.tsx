@@ -58,6 +58,7 @@ import {
   Archive,
   MessageSquare,
   Edit3,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { FileIcon } from '@/components/files/FileIcon';
@@ -66,6 +67,7 @@ import { getPresignedPreviewUrl } from '@/services/presignUpload';
 import { formatBytes, formatDate, decodeFileName } from '@/utils';
 import { isPreviewable } from '@/utils/fileTypes';
 import type { FileItem } from '@osshelf/shared';
+import { isEditableFile } from '@osshelf/shared';
 import { cn } from '@/utils';
 import { NotePanel } from '@/components/notes';
 import { FileEditor } from '@/components/editor';
@@ -104,6 +106,7 @@ interface FilePreviewProps {
   onDownload: (file: FileItem) => void;
   onShare: (fileId: string) => void;
   onEdit?: (file: FileItem) => void;
+  onVersionHistory?: (file: FileItem) => void;
 }
 
 type WindowSize = 'small' | 'medium' | 'large' | 'fullscreen';
@@ -409,7 +412,15 @@ function renderExcelSheetWithStyles(
   return { html: rows.join(''), merges };
 }
 
-export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit }: FilePreviewProps) {
+export function FilePreview({
+  file,
+  token,
+  onClose,
+  onDownload,
+  onShare,
+  onEdit,
+  onVersionHistory,
+}: FilePreviewProps) {
   const [textContent, setTextContent] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
@@ -614,6 +625,18 @@ export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit 
           .catch(() => setLoadError(true));
       });
   }, [file.id, resolvedUrl, isText, isMarkdown, isCsv, canPreview]);
+
+  const refreshTextContent = useCallback(async () => {
+    if (!isText && !isMarkdown && !isCsv) return;
+    try {
+      const res = await previewApi.getRaw(file.id);
+      if (res.data.success && res.data.data?.content) {
+        setTextContent(res.data.data.content);
+      }
+    } catch (error) {
+      console.error('Failed to refresh content:', error);
+    }
+  }, [file.id, isText, isMarkdown, isCsv]);
 
   const loadDocxPreview = useCallback(async () => {
     if (!isWord || !resolvedUrl || !docxContainerRef.current) {
@@ -1344,6 +1367,17 @@ export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit 
                 <Edit3 className="h-4 w-4" />
               </Button>
             )}
+            {isEditableFile(file.mimeType, file.name) && onVersionHistory && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="版本历史"
+                onClick={() => onVersionHistory(file)}
+              >
+                <History className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -1963,61 +1997,10 @@ export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit 
           onClose={() => setShowEditor(false)}
           onSaved={() => {
             setShowEditor(false);
+            refreshTextContent();
           }}
         />
       )}
     </div>
   );
-}
-
-function isEditableFile(mimeType: string | null, fileName: string): boolean {
-  if (!mimeType) return false;
-  const editableTypes = [
-    'text/',
-    'application/json',
-    'application/xml',
-    'application/javascript',
-    'application/x-yaml',
-    'application/yaml',
-  ];
-  if (editableTypes.some((t) => mimeType.startsWith(t) || mimeType === t)) return true;
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  const editableExts = [
-    'txt',
-    'md',
-    'markdown',
-    'json',
-    'js',
-    'jsx',
-    'ts',
-    'tsx',
-    'html',
-    'htm',
-    'css',
-    'scss',
-    'less',
-    'xml',
-    'yaml',
-    'yml',
-    'toml',
-    'ini',
-    'env',
-    'sh',
-    'bash',
-    'py',
-    'go',
-    'rs',
-    'java',
-    'c',
-    'cpp',
-    'h',
-    'hpp',
-    'cs',
-    'php',
-    'rb',
-    'sql',
-    'vue',
-    'svelte',
-  ];
-  return editableExts.includes(ext);
 }
