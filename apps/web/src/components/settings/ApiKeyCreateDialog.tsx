@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { useToast } from '../ui/useToast';
+import { apiKeysApi } from '@/services/api';
 
 interface ApiKeyCreateDialogProps {
   onClose: () => void;
@@ -28,7 +29,9 @@ const ApiKeyCreateDialog: React.FC<ApiKeyCreateDialogProps> = ({ onClose, onCrea
   const { toast } = useToast();
 
   const handleToggleScope = (scope: string) => {
-    setSelectedScopes((prev) => (prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]));
+    setSelectedScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,25 +58,21 @@ const ApiKeyCreateDialog: React.FC<ApiKeyCreateDialogProps> = ({ onClose, onCrea
         expiresAt = date.toISOString();
       }
 
-      const res = await fetch('/api/keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          scopes: selectedScopes,
-          expiresAt,
-        }),
+      const res = await apiKeysApi.create({
+        name: name.trim(),
+        scopes: selectedScopes,
+        expiresAt,
       });
 
-      const data = await res.json();
-      if (data.success) {
-        onCreated(data.data.id, data.data.key);
-      } else {
-        throw new Error(data.error?.message || '创建失败');
+      if (res.data.success && res.data.data) {
+        onCreated(res.data.data.id, res.data.data.key);
       }
     } catch (error) {
       console.error('Failed to create API key:', error);
-      toast({ title: error instanceof Error ? error.message : '创建失败', variant: 'destructive' });
+      toast({
+        title: error instanceof Error ? error.message : '创建失败',
+        variant: 'destructive',
+      });
     } finally {
       setIsCreating(false);
     }

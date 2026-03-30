@@ -13,23 +13,7 @@ import { Button } from '../ui/Button';
 import { useToast } from '../ui/useToast';
 import NoteEditor from './NoteEditor';
 import NoteCard from './NoteCard';
-
-interface Note {
-  id: string;
-  content: string;
-  contentHtml: string | null;
-  isPinned: boolean;
-  version: number;
-  parentId: string | null;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
-  user: {
-    id: string;
-    name: string | null;
-    email: string;
-  } | null;
-}
+import { notesApi, type FileNote } from '@/services/api';
 
 interface NotePanelProps {
   fileId: string;
@@ -38,21 +22,20 @@ interface NotePanelProps {
 }
 
 const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<FileNote[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const [replyTo, setReplyTo] = useState<Note | null>(null);
+  const [editingNote, setEditingNote] = useState<FileNote | null>(null);
+  const [replyTo, setReplyTo] = useState<FileNote | null>(null);
   const { toast } = useToast();
 
   const fetchNotes = useCallback(async () => {
     if (!fileId) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/notes/${fileId}?limit=50`);
-      const data = await res.json();
-      if (data.success) {
-        setNotes(data.data.notes);
+      const res = await notesApi.list(fileId, 1, 50);
+      if (res.data.success && res.data.data) {
+        setNotes(res.data.data.notes);
       }
     } catch (error) {
       console.error('Failed to fetch notes:', error);
@@ -74,13 +57,13 @@ const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
     setIsEditorOpen(true);
   };
 
-  const handleEditNote = (note: Note) => {
+  const handleEditNote = (note: FileNote) => {
     setEditingNote(note);
     setReplyTo(null);
     setIsEditorOpen(true);
   };
 
-  const handleReplyNote = (note: Note) => {
+  const handleReplyNote = (note: FileNote) => {
     setEditingNote(null);
     setReplyTo(note);
     setIsEditorOpen(true);
@@ -90,15 +73,10 @@ const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
     if (!confirm('确定要删除这条笔记吗？')) return;
 
     try {
-      const res = await fetch(`/api/notes/${fileId}/${noteId}`, {
-        method: 'DELETE',
-      });
-      const data = await res.json();
-      if (data.success) {
+      const res = await notesApi.delete(fileId, noteId);
+      if (res.data.success) {
         toast({ title: '笔记已删除' });
         fetchNotes();
-      } else {
-        throw new Error(data.error?.message || '删除失败');
       }
     } catch (error) {
       console.error('Failed to delete note:', error);
@@ -108,12 +86,9 @@ const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
 
   const handleTogglePin = async (noteId: string) => {
     try {
-      const res = await fetch(`/api/notes/${fileId}/${noteId}/pin`, {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast({ title: data.data.message });
+      const res = await notesApi.pin(fileId, noteId);
+      if (res.data.success && res.data.data) {
+        toast({ title: res.data.data.message });
         fetchNotes();
       }
     } catch (error) {
@@ -124,29 +99,24 @@ const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
 
   const handleEditorSave = async (content: string) => {
     try {
-      const url = editingNote ? `/api/notes/${fileId}/${editingNote.id}` : `/api/notes/${fileId}`;
-      const method = editingNote ? 'PUT' : 'POST';
-
-      const body: Record<string, unknown> = { content };
-      if (replyTo) {
-        body.parentId = replyTo.id;
-      }
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        toast({ title: editingNote ? '笔记已更新' : '笔记已创建' });
-        setIsEditorOpen(false);
-        setEditingNote(null);
-        setReplyTo(null);
-        fetchNotes();
+      if (editingNote) {
+        const res = await notesApi.update(fileId, editingNote.id, content);
+        if (res.data.success) {
+          toast({ title: '笔记已更新' });
+          setIsEditorOpen(false);
+          setEditingNote(null);
+          setReplyTo(null);
+          fetchNotes();
+        }
       } else {
-        throw new Error(data.error?.message || '保存失败');
+        const res = await notesApi.create(fileId, content, replyTo?.id);
+        if (res.data.success) {
+          toast({ title: '笔记已创建' });
+          setIsEditorOpen(false);
+          setEditingNote(null);
+          setReplyTo(null);
+          fetchNotes();
+        }
       }
     } catch (error) {
       console.error('Failed to save note:', error);
@@ -158,7 +128,7 @@ const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
 
   const pinnedNotes = notes.filter((n) => n.isPinned && !n.parentId);
   const regularNotes = notes.filter((n) => !n.isPinned && !n.parentId);
-  const replyMap = new Map<string, Note[]>();
+  const replyMap = new Map<string, FileNote[]>();
   notes.forEach((n) => {
     if (n.parentId) {
       const replies = replyMap.get(n.parentId) || [];
@@ -175,7 +145,10 @@ const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
           <Button size="sm" onClick={handleCreateNote}>
             新建笔记
           </Button>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -219,7 +192,9 @@ const NotePanel: React.FC<NotePanelProps> = ({ fileId, isOpen, onClose }) => {
 
             {regularNotes.length > 0 && (
               <div className="space-y-3">
-                {pinnedNotes.length > 0 && <h3 className="text-sm font-medium text-gray-500">其他笔记</h3>}
+                {pinnedNotes.length > 0 && (
+                  <h3 className="text-sm font-medium text-gray-500">其他笔记</h3>
+                )}
                 {regularNotes.map((note) => (
                   <NoteCard
                     key={note.id}

@@ -13,6 +13,7 @@ import { Button } from '../ui/Button';
 import { useToast } from '../ui/useToast';
 import CodeEditor from './CodeEditor';
 import TextEditor from './TextEditor';
+import { fileContentApi } from '@/services/api';
 
 interface FileEditorProps {
   fileId: string;
@@ -76,10 +77,10 @@ const FileEditor: React.FC<FileEditorProps> = ({ fileId, fileName, mimeType, onC
 
   const isEditable = mimeType && (mimeType.startsWith('text/') || EDITABLE_MIME_TYPES.includes(mimeType));
 
-  const language = mimeType ? LANGUAGE_MAP[mimeType] || 'plaintext' : 'plaintext';
+  let language = mimeType ? LANGUAGE_MAP[mimeType] || 'plaintext' : 'plaintext';
 
   const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
-  if (!language || language === 'plaintext') {
+  if (language === 'plaintext') {
     const extMap: Record<string, string> = {
       js: 'javascript',
       jsx: 'javascript',
@@ -116,20 +117,19 @@ const FileEditor: React.FC<FileEditorProps> = ({ fileId, fileName, mimeType, onC
       txt: 'plaintext',
     };
     if (extMap[fileExt]) {
-      LANGUAGE_MAP[mimeType || ''] = extMap[fileExt];
+      language = extMap[fileExt];
     }
   }
 
   const fetchContent = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/files/${fileId}/raw`);
-      const data = await res.json();
-      if (data.success) {
-        setContent(data.data.content);
-        setOriginalContent(data.data.content);
+      const res = await fileContentApi.getRaw(fileId);
+      if (res.data.success && res.data.data) {
+        setContent(res.data.data.content);
+        setOriginalContent(res.data.data.content);
       } else {
-        throw new Error(data.error?.message || '加载失败');
+        throw new Error(res.data.error?.message || '加载失败');
       }
     } catch (error) {
       console.error('Failed to load file content:', error);
@@ -159,24 +159,19 @@ const FileEditor: React.FC<FileEditorProps> = ({ fileId, fileName, mimeType, onC
 
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/files/${fileId}/content`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content,
-          changeSummary: changeSummary || undefined,
-        }),
+      const res = await fileContentApi.update(fileId, {
+        content,
+        changeSummary: changeSummary || undefined,
       });
 
-      const data = await res.json();
-      if (data.success) {
+      if (res.data.success) {
         toast({ title: '保存成功' });
         setOriginalContent(content);
         setShowSaveDialog(false);
         setChangeSummary('');
         onSaved?.();
       } else {
-        throw new Error(data.error?.message || '保存失败');
+        throw new Error(res.data.error?.message || '保存失败');
       }
     } catch (error) {
       console.error('Failed to save file:', error);
@@ -236,7 +231,10 @@ const FileEditor: React.FC<FileEditorProps> = ({ fileId, fileName, mimeType, onC
             <Button size="sm" onClick={() => setShowSaveDialog(true)} disabled={!hasChanges || isSaving}>
               保存
             </Button>
-            <button onClick={handleClose} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+            <button
+              onClick={handleClose}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>

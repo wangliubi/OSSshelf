@@ -4,27 +4,11 @@
  */
 
 import React, { useState } from 'react';
-
-interface Note {
-  id: string;
-  content: string;
-  contentHtml: string | null;
-  isPinned: boolean;
-  version: number;
-  parentId: string | null;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
-  user: {
-    id: string;
-    name: string | null;
-    email: string;
-  } | null;
-}
+import type { FileNote } from '@/services/api';
 
 interface NoteCardProps {
-  note: Note;
-  replies?: Note[];
+  note: FileNote;
+  replies?: FileNote[];
   onEdit: () => void;
   onDelete: () => void;
   onReply: () => void;
@@ -86,12 +70,7 @@ const NoteCard: React.FC<NoteCardProps> = ({ note, replies, onEdit, onDelete, on
               title="回复"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
               </svg>
             </button>
             <button
@@ -111,12 +90,7 @@ const NoteCard: React.FC<NoteCardProps> = ({ note, replies, onEdit, onDelete, on
               title="编辑"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </button>
             <button
@@ -125,12 +99,7 @@ const NoteCard: React.FC<NoteCardProps> = ({ note, replies, onEdit, onDelete, on
               title="删除"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
           </div>
@@ -142,11 +111,18 @@ const NoteCard: React.FC<NoteCardProps> = ({ note, replies, onEdit, onDelete, on
         dangerouslySetInnerHTML={{ __html: note.contentHtml || note.content }}
       />
 
-      {note.version > 1 && <div className="mt-2 text-xs text-gray-400">已编辑 · 版本 {note.version}</div>}
+      {note.version > 1 && (
+        <div className="mt-2 text-xs text-gray-400">
+          已编辑 · 版本 {note.version}
+        </div>
+      )}
 
       {replies && replies.length > 0 && (
         <div className="mt-3 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-          <button onClick={() => setShowReplies(!showReplies)} className="text-xs text-blue-500 hover:underline mb-2">
+          <button
+            onClick={() => setShowReplies(!showReplies)}
+            className="text-xs text-blue-500 hover:underline mb-2"
+          >
             {showReplies ? '隐藏' : '显示'} {replies.length} 条回复
           </button>
           {showReplies && (

@@ -8,17 +8,7 @@ import { Button } from '../ui/Button';
 import { useToast } from '../ui/useToast';
 import ApiKeyCreateDialog from './ApiKeyCreateDialog';
 import ApiKeyShowOnceDialog from './ApiKeyShowOnceDialog';
-
-interface ApiKey {
-  id: string;
-  name: string;
-  keyPrefix: string;
-  scopes: string[];
-  lastUsedAt: string | null;
-  expiresAt: string | null;
-  isActive: boolean;
-  createdAt: string;
-}
+import { apiKeysApi, type ApiKey } from '@/services/api';
 
 const SCOPE_LABELS: Record<string, string> = {
   'files:read': '读取文件',
@@ -39,10 +29,9 @@ const ApiKeyList: React.FC = () => {
   const fetchKeys = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/keys');
-      const data = await res.json();
-      if (data.success) {
-        setKeys(data.data);
+      const res = await apiKeysApi.list();
+      if (res.data.success && res.data.data) {
+        setKeys(res.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch API keys:', error);
@@ -60,13 +49,10 @@ const ApiKeyList: React.FC = () => {
     if (!confirm(`确定要删除 API Key "${keyName}" 吗？此操作不可撤销。`)) return;
 
     try {
-      const res = await fetch(`/api/keys/${keyId}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
+      const res = await apiKeysApi.delete(keyId);
+      if (res.data.success) {
         toast({ title: 'API Key 已删除' });
         fetchKeys();
-      } else {
-        throw new Error(data.error?.message || '删除失败');
       }
     } catch (error) {
       console.error('Failed to delete API key:', error);
@@ -76,13 +62,8 @@ const ApiKeyList: React.FC = () => {
 
   const handleToggleActive = async (keyId: string, currentActive: boolean) => {
     try {
-      const res = await fetch(`/api/keys/${keyId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !currentActive }),
-      });
-      const data = await res.json();
-      if (data.success) {
+      const res = await apiKeysApi.update(keyId, { isActive: !currentActive });
+      if (res.data.success) {
         toast({ title: currentActive ? 'API Key 已禁用' : 'API Key 已启用' });
         fetchKeys();
       }
@@ -125,7 +106,12 @@ const ApiKeyList: React.FC = () => {
 
       {keys.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-12 h-12 mx-auto text-gray-400 mb-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
