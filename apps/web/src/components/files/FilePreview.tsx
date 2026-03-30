@@ -56,6 +56,8 @@ import {
   File,
   Image as ImageIcon,
   Archive,
+  MessageSquare,
+  Edit3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { FileIcon } from '@/components/files/FileIcon';
@@ -65,6 +67,8 @@ import { formatBytes, formatDate, decodeFileName } from '@/utils';
 import { isPreviewable } from '@/utils/fileTypes';
 import type { FileItem } from '@osshelf/shared';
 import { cn } from '@/utils';
+import { NotePanel } from '@/components/notes';
+import { FileEditor } from '@/components/editor';
 
 import 'highlight.js/styles/github-dark.css';
 import 'katex/dist/katex.min.css';
@@ -99,6 +103,7 @@ interface FilePreviewProps {
   onClose: () => void;
   onDownload: (file: FileItem) => void;
   onShare: (fileId: string) => void;
+  onEdit?: (file: FileItem) => void;
 }
 
 type WindowSize = 'small' | 'medium' | 'large' | 'fullscreen';
@@ -404,7 +409,7 @@ function renderExcelSheetWithStyles(
   return { html: rows.join(''), merges };
 }
 
-export function FilePreview({ file, token, onClose, onDownload, onShare }: FilePreviewProps) {
+export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit }: FilePreviewProps) {
   const [textContent, setTextContent] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
@@ -463,6 +468,8 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1);
   const [pdfTotalPages, setPdfTotalPages] = useState(0);
   const [excelLoading, setExcelLoading] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
 
   const canPreview = isPreviewable(file.mimeType);
   const isImage = file.mimeType?.startsWith('image/');
@@ -1332,6 +1339,20 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
             <Button variant="ghost" size="icon" className="h-8 w-8" title="分享" onClick={() => onShare(file.id)}>
               <Share2 className="h-4 w-4" />
             </Button>
+            {isEditableFile(file.mimeType, file.name) && onEdit && (
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="编辑" onClick={() => setShowEditor(true)}>
+                <Edit3 className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title="笔记"
+              onClick={() => setShowNotes(true)}
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" title="关闭" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -1931,6 +1952,72 @@ export function FilePreview({ file, token, onClose, onDownload, onShare }: FileP
           ) : null}
         </div>
       </div>
+
+      {showNotes && <NotePanel fileId={file.id} isOpen={showNotes} onClose={() => setShowNotes(false)} />}
+
+      {showEditor && (
+        <FileEditor
+          fileId={file.id}
+          fileName={file.name}
+          mimeType={file.mimeType}
+          onClose={() => setShowEditor(false)}
+          onSaved={() => {
+            setShowEditor(false);
+          }}
+        />
+      )}
     </div>
   );
+}
+
+function isEditableFile(mimeType: string | null, fileName: string): boolean {
+  if (!mimeType) return false;
+  const editableTypes = [
+    'text/',
+    'application/json',
+    'application/xml',
+    'application/javascript',
+    'application/x-yaml',
+    'application/yaml',
+  ];
+  if (editableTypes.some((t) => mimeType.startsWith(t) || mimeType === t)) return true;
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const editableExts = [
+    'txt',
+    'md',
+    'markdown',
+    'json',
+    'js',
+    'jsx',
+    'ts',
+    'tsx',
+    'html',
+    'htm',
+    'css',
+    'scss',
+    'less',
+    'xml',
+    'yaml',
+    'yml',
+    'toml',
+    'ini',
+    'env',
+    'sh',
+    'bash',
+    'py',
+    'go',
+    'rs',
+    'java',
+    'c',
+    'cpp',
+    'h',
+    'hpp',
+    'cs',
+    'php',
+    'rb',
+    'sql',
+    'vue',
+    'svelte',
+  ];
+  return editableExts.includes(ext);
 }

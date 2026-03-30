@@ -38,6 +38,7 @@ import {
   isChunkedFileId,
 } from '../lib/telegramChunked';
 import { checkAndClaimDedup, releaseFileRef, computeSha256Hex } from '../lib/dedup';
+import { createVersionSnapshot, shouldCreateVersion } from '../lib/versionManager';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -1038,6 +1039,208 @@ app.put('/:id', async (c) => {
 
   await db.update(files).set(updateData).where(eq(files.id, fileId));
   return c.json({ success: true, data: { message: '更新成功' } });
+});
+
+// ── Get file raw content (for editing) ─────────────────────────────────────
+app.get('/:id/raw', async (c) => {
+  const userId = c.get('userId')!;
+  const fileId = c.req.param('id');
+  const db = getDb(c.env.DB);
+
+  const { hasAccess } = await checkFilePermission(db, fileId, userId, 'read');
+  if (!hasAccess) {
+    throwAppError('FILE_ACCESS_DENIED', '无权访问此文件');
+  }
+
+  const file = await db.select().from(files).where(eq(files.id, fileId)).get();
+  if (!file) throwAppError('FILE_NOT_FOUND');
+  if (file.isFolder) throwAppError('FOLDER_VERSION_NOT_SUPPORTED', '无法获取文件夹内容');
+
+  const isEditableMimeType = (mimeType: string | null): boolean => {
+    if (!mimeType) return false;
+    const editableTypes = [
+      'text/',
+      'application/json',
+      'application/xml',
+      'application/javascript',
+      'application/x-yaml',
+      'application/yaml',
+    ];
+    return editableTypes.some((t) => mimeType.startsWith(t) || mimeType === t);
+  };
+
+  if (!isEditableMimeType(file.mimeType)) {
+    return c.json(
+      {
+        success: false,
+        error: { code: 'FILE_NOT_EDITABLE', message: '此文件类型不支持在线编辑' },
+      },
+      400
+    );
+  }
+
+  const maxEditableSize = 1024 * 1024;
+  if (file.size > maxEditableSize) {
+    return c.json(
+      {
+        success: false,
+        error: { code: 'FILE_TOO_LARGE', message: '文件过大，不支持在线编辑（最大 1MB）' },
+      },
+      400
+    );
+  }
+
+  const encKey = getEncryptionKey(c.env);
+  const bucketConfig = await resolveBucketConfig(db, file.userId, encKey, file.bucketId, file.parentId);
+
+  let content: string;
+
+  if (bucketConfig) {
+    const response = await s3Get(bucketConfig, file.r2Key);
+    const buffer = await response.arrayBuffer();
+    content = new TextDecoder('utf-8').decode(buffer);
+  } else if (c.env.FILES) {
+    const obj = await c.env.FILES.get(file.r2Key);
+    if (!obj) throwAppError('FILE_CONTENT_NOT_FOUND');
+    content = await obj.text();
+  } else {
+    throwAppError('NO_STORAGE_CONFIGURED', '存储桶未配置');
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      content,
+      mimeType: file.mimeType,
+      size: file.size,
+      name: file.name,
+    },
+  });
+});
+
+// ── Update file content (with version snapshot) ─────────────────────────────
+const updateContentSchema = z.object({
+  content: z.string(),
+  changeSummary: z.string().max(500).optional(),
+});
+
+app.put('/:id/content', async (c) => {
+  const userId = c.get('userId')!;
+  const fileId = c.req.param('id');
+  const body = await c.req.json();
+  const result = updateContentSchema.safeParse(body);
+  if (!result.success) {
+    return c.json(
+      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: result.error.errors[0].message } },
+      400
+    );
+  }
+
+  const { content, changeSummary } = result.data;
+  const db = getDb(c.env.DB);
+
+  const { hasAccess } = await checkFilePermission(db, fileId, userId, 'write');
+  if (!hasAccess) {
+    throwAppError('FILE_WRITE_DENIED', '无权修改此文件');
+  }
+
+  const file = await db.select().from(files).where(eq(files.id, fileId)).get();
+  if (!file) throwAppError('FILE_NOT_FOUND');
+  if (file.isFolder) throwAppError('FOLDER_VERSION_NOT_SUPPORTED', '无法修改文件夹内容');
+
+  const isEditableMimeType = (mimeType: string | null): boolean => {
+    if (!mimeType) return false;
+    const editableTypes = [
+      'text/',
+      'application/json',
+      'application/xml',
+      'application/javascript',
+      'application/x-yaml',
+      'application/yaml',
+    ];
+    return editableTypes.some((t) => mimeType.startsWith(t) || mimeType === t);
+  };
+
+  if (!isEditableMimeType(file.mimeType)) {
+    return c.json(
+      {
+        success: false,
+        error: { code: 'FILE_NOT_EDITABLE', message: '此文件类型不支持在线编辑' },
+      },
+      400
+    );
+  }
+
+  const contentBuffer = new TextEncoder().encode(content);
+  const contentArrayBuffer = contentBuffer.buffer as ArrayBuffer;
+  const newSize = contentBuffer.byteLength;
+
+  const maxEditableSize = 1024 * 1024;
+  if (newSize > maxEditableSize) {
+    return c.json(
+      {
+        success: false,
+        error: { code: 'FILE_TOO_LARGE', message: '内容过大，不支持在线编辑（最大 1MB）' },
+      },
+      400
+    );
+  }
+
+  const newHash = await computeSha256Hex(contentArrayBuffer);
+  const encKey = getEncryptionKey(c.env);
+
+  const needsVersion = await shouldCreateVersion(db, fileId, newHash);
+  if (needsVersion && file.hash) {
+    await createVersionSnapshot(db, c.env, file, {
+      changeSummary: changeSummary ?? '内容更新',
+      createdBy: userId,
+    });
+  }
+
+  const bucketConfig = await resolveBucketConfig(db, file.userId, encKey, file.bucketId, file.parentId);
+
+  if (bucketConfig) {
+    await s3Put(bucketConfig, file.r2Key, contentArrayBuffer, file.mimeType || 'text/plain', {
+      userId,
+      originalName: file.name,
+    });
+  } else if (c.env.FILES) {
+    await c.env.FILES.put(file.r2Key, contentArrayBuffer, {
+      httpMetadata: { contentType: file.mimeType || 'text/plain' },
+      customMetadata: { userId, originalName: file.name },
+    });
+  } else {
+    throwAppError('NO_STORAGE_CONFIGURED', '存储桶未配置');
+  }
+
+  const sizeDelta = newSize - file.size;
+  const now = new Date().toISOString();
+
+  await db
+    .update(files)
+    .set({
+      size: newSize,
+      hash: newHash,
+      updatedAt: now,
+    })
+    .where(eq(files.id, fileId));
+
+  if (sizeDelta !== 0) {
+    await updateUserStorage(db, file.userId, sizeDelta);
+    if (bucketConfig) {
+      await updateBucketStats(db, bucketConfig.id, sizeDelta, 0);
+    }
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      message: '文件内容已更新',
+      size: newSize,
+      hash: newHash,
+      versionCreated: needsVersion,
+    },
+  });
 });
 
 // ── Update folder settings (upload type control) ───────────────────────────
