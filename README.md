@@ -4,13 +4,13 @@
 
 **基于 Cloudflare 的多厂商 OSS 文件管理系统**
 
-支持 WebDAV 协议 · 多存储提供商 · 大文件分片上传 · 文件分享
+文件上传下载 · 在线预览 · 文件分享 · 多存储支持 · WebDAV 协议 · 权限管理 · 开放 API
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-green.svg)](https://nodejs.org)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-orange.svg)](https://workers.cloudflare.com)
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [部署指南](#-部署指南) • [使用说明](#-使用说明) • [API文档](#-api-文档)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [部署指南](#-部署指南) • [API文档](#-api-文档)
 
 </div>
 
