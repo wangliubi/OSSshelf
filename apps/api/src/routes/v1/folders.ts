@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { eq, and, isNull, desc, sql } from 'drizzle-orm';
 import { getDb, files, storageBuckets } from '../../db';
 import { authMiddleware } from '../../middleware/auth';
-import { checkFilePermission } from '../../routes/permissions';
+import { checkFilePermission, inheritParentPermissions } from '../../routes/permissions';
 import { throwAppError } from '../../middleware/error';
 import type { Env, Variables } from '../../types/env';
 
@@ -108,6 +108,8 @@ app.openapi(createFolderRoute, async (c) => {
     createdAt: now,
     updatedAt: now,
   });
+
+  await inheritParentPermissions(db, folderId, parentId || null);
 
   return c.json({
     success: true,

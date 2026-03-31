@@ -148,6 +148,66 @@ async function getUserGroupIds(db: ReturnType<typeof getDb>, userId: string): Pr
   return memberships.map((m) => m.groupId);
 }
 
+export async function inheritParentPermissions(
+  db: ReturnType<typeof getDb>,
+  fileId: string,
+  parentId: string | null
+): Promise<void> {
+  if (!parentId) return;
+
+  const parentPermissions = await db
+    .select()
+    .from(filePermissions)
+    .where(
+      and(
+        eq(filePermissions.fileId, parentId),
+        eq(filePermissions.inheritToChildren, true)
+      )
+    )
+    .all();
+
+  if (parentPermissions.length === 0) return;
+
+  const now = new Date().toISOString();
+  const newPermissions = parentPermissions.map((p) => ({
+    id: crypto.randomUUID(),
+    fileId,
+    userId: p.userId,
+    groupId: p.groupId,
+    subjectType: p.subjectType,
+    permission: p.permission,
+    grantedBy: p.grantedBy,
+    expiresAt: p.expiresAt,
+    inheritToChildren: true,
+    scope: 'inherited',
+    sourcePermissionId: p.id,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  for (const perm of newPermissions) {
+    const existing = await db
+      .select()
+      .from(filePermissions)
+      .where(
+        and(
+          eq(filePermissions.fileId, fileId),
+          perm.userId
+            ? eq(filePermissions.userId, perm.userId)
+            : isNull(filePermissions.userId),
+          perm.groupId
+            ? eq(filePermissions.groupId, perm.groupId)
+            : isNull(filePermissions.groupId)
+        )
+      )
+      .get();
+
+    if (!existing) {
+      await db.insert(filePermissions).values(perm);
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 静态路由必须在参数化路由之前定义
 // ─────────────────────────────────────────────────────────────────────────────

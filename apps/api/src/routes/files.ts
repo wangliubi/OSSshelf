@@ -13,6 +13,7 @@ import { Hono, type Context } from 'hono';
 import { eq, and, isNull, isNotNull, like, or, inArray, sql } from 'drizzle-orm';
 import { getDb, files, users, storageBuckets, filePermissions, telegramFileRefs, fileVersions, groupMembers } from '../db';
 import { checkFilePermission } from './permissions';
+import { inheritParentPermissions } from './permissions';
 import { authMiddleware } from '../middleware/auth';
 import { throwAppError } from '../middleware/error';
 import { ERROR_CODES, MAX_FILE_SIZE, isPreviewableMimeType, inferMimeType } from '@osshelf/shared';
@@ -437,6 +438,8 @@ app.post('/upload', async (c) => {
     deletedAt: null,
   });
 
+  await inheritParentPermissions(db, fileId, parentId);
+
   if (user) {
     await updateUserStorage(db, userId, uploadFile.size);
   }
@@ -489,8 +492,9 @@ app.get('/', async (c) => {
     // 用户需要有权限访问该目录（已在上面检查）
     conditions.push(eq(files.parentId, parentId));
   } else {
-    // 未指定 parentId，返回用户有权限访问的根目录文件
-    // 包括：用户自己的根目录文件 + 被授权的根目录文件
+    // 未指定 parentId，返回：
+    // 1. 用户自己的根目录文件
+    // 2. 被授权访问的文件（无论在哪个目录）
     
     // 获取用户所属的用户组
     const userGroups = await db
@@ -522,13 +526,14 @@ app.get('/', async (c) => {
       ...groupPermittedFiles.map((p) => p.fileId),
     ]);
 
-    // 根目录查询：用户自己的文件 或 被授权访问的文件
+    // 根目录查询条件：
+    // - 用户自己的根目录文件 (userId = current AND parentId IS NULL)
+    // - 或被授权访问的文件 (id IN permittedIds)
     const ownershipCondition = or(
-      eq(files.userId, userId),
+      and(eq(files.userId, userId), isNull(files.parentId)),
       permittedIds.size > 0 ? inArray(files.id, Array.from(permittedIds)) : undefined
     );
     conditions.push(ownershipCondition);
-    conditions.push(isNull(files.parentId));
   }
   
   if (search) conditions.push(like(files.name, `%${search}%`));
@@ -789,6 +794,7 @@ app.post('/', async (c) => {
     deletedAt: null,
   };
   await db.insert(files).values(newFolder);
+  await inheritParentPermissions(db, folderId, parentId || null);
 
   let bucketInfo: { id: string; name: string; provider: string } | null = null;
   if (effectiveBucketId) {
@@ -959,6 +965,8 @@ app.post('/create', async (c) => {
     updatedAt: now,
     deletedAt: null,
   });
+
+  await inheritParentPermissions(db, fileId, parentId || null);
 
   if (user) {
     await updateUserStorage(db, userId, fileSize);
