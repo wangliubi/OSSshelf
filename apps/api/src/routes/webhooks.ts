@@ -38,6 +38,13 @@ const createWebhookSchema = z.object({
   secret: z.string().min(8, '密钥至少 8 个字符').optional(),
 });
 
+app.get('/events', (c) => {
+  return c.json({
+    success: true,
+    data: WEBHOOK_EVENTS,
+  });
+});
+
 app.get('/', async (c) => {
   const userId = c.get('userId')!;
   const db = getDb(c.env.DB);
@@ -141,7 +148,7 @@ app.get('/:id', async (c) => {
     success: true,
     data: {
       ...webhook,
-      events: JSON.parse(webhook.events),
+      events: JSON.parse(webhook!.events),
       secret: undefined,
     },
   });
@@ -263,13 +270,6 @@ app.post('/:id/test', async (c) => {
   });
 
   return c.json({ success: true, data: { message: '测试事件已发送' } });
-});
-
-app.get('/events', (c) => {
-  return c.json({
-    success: true,
-    data: WEBHOOK_EVENTS,
-  });
 });
 
 function generateSecret(): string {
