@@ -142,72 +142,72 @@ async function getUserGroupIds(db: ReturnType<typeof getDb>, userId: string): Pr
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.get('/all', async (c) => {
-  try {
-    const userId = c.get('userId')!;
-    const db = getDb(c.env.DB);
+  const userId = c.get('userId')!;
+  const db = getDb(c.env.DB);
 
-    const userFiles = await db
-      .select({ id: files.id })
-      .from(files)
-      .where(and(eq(files.userId, userId), isNull(files.deletedAt)))
-      .all();
+  const userFiles = await db
+    .select({ id: files.id })
+    .from(files)
+    .where(and(eq(files.userId, userId), isNull(files.deletedAt)))
+    .all();
 
-    const fileIds = userFiles.map((f) => f.id);
+  const fileIds = userFiles.map((f) => f.id);
 
-    if (fileIds.length === 0) {
-      return c.json({ success: true, data: { permissions: [] } });
-    }
-
-    const permissions = await db
-      .select({
-        id: filePermissions.id,
-        subjectType: filePermissions.subjectType,
-        userId: filePermissions.userId,
-        groupId: filePermissions.groupId,
-        permission: filePermissions.permission,
-        expiresAt: filePermissions.expiresAt,
-        createdAt: filePermissions.createdAt,
-        fileId: filePermissions.fileId,
-        fileName: files.name,
-        filePath: files.path,
-        isFolder: files.isFolder,
-        userName: users.name,
-        userEmail: users.email,
-        groupName: userGroups.name,
-      })
-      .from(filePermissions)
-      .innerJoin(files, eq(filePermissions.fileId, files.id))
-      .leftJoin(users, eq(filePermissions.userId, users.id))
-      .leftJoin(userGroups, eq(filePermissions.groupId, userGroups.id))
-      .where(inArray(filePermissions.fileId, fileIds))
-      .all();
-
-    const formattedPermissions = permissions.map((p) => ({
-      id: p.id,
-      subjectType: p.subjectType,
-      subjectId: p.subjectType === 'user' ? p.userId : p.groupId,
-      subjectName: p.subjectType === 'user' ? (p.userName || p.userEmail || '未知用户') : (p.groupName || '未知组'),
-      fileId: p.fileId,
-      fileName: p.fileName,
-      filePath: p.filePath,
-      isFolder: p.isFolder,
-      permission: p.permission,
-      expiresAt: p.expiresAt,
-      createdAt: p.createdAt,
-    }));
-
-    return c.json({ success: true, data: { permissions: formattedPermissions } });
-  } catch (error) {
-    console.error('Error in /api/permissions/all:', error);
-    return c.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      },
-    }, 500);
+  if (fileIds.length === 0) {
+    return c.json({ success: true, data: { permissions: [] } });
   }
+
+  const CHUNK_SIZE = 100;
+  const chunks = [];
+  for (let i = 0; i < fileIds.length; i += CHUNK_SIZE) {
+    chunks.push(fileIds.slice(i, i + CHUNK_SIZE));
+  }
+
+  const permissionChunks = await Promise.all(
+    chunks.map((chunk) =>
+      db
+        .select({
+          id: filePermissions.id,
+          subjectType: filePermissions.subjectType,
+          userId: filePermissions.userId,
+          groupId: filePermissions.groupId,
+          permission: filePermissions.permission,
+          expiresAt: filePermissions.expiresAt,
+          createdAt: filePermissions.createdAt,
+          fileId: filePermissions.fileId,
+          fileName: files.name,
+          filePath: files.path,
+          isFolder: files.isFolder,
+          userName: users.name,
+          userEmail: users.email,
+          groupName: userGroups.name,
+        })
+        .from(filePermissions)
+        .innerJoin(files, eq(filePermissions.fileId, files.id))
+        .leftJoin(users, eq(filePermissions.userId, users.id))
+        .leftJoin(userGroups, eq(filePermissions.groupId, userGroups.id))
+        .where(inArray(filePermissions.fileId, chunk))
+        .all()
+    )
+  );
+
+  const permissions = permissionChunks.flat();
+
+  const formattedPermissions = permissions.map((p) => ({
+    id: p.id,
+    subjectType: p.subjectType,
+    subjectId: p.subjectType === 'user' ? p.userId : p.groupId,
+    subjectName: p.subjectType === 'user' ? (p.userName || p.userEmail || '未知用户') : (p.groupName || '未知组'),
+    fileId: p.fileId,
+    fileName: p.fileName,
+    filePath: p.filePath,
+    isFolder: p.isFolder,
+    permission: p.permission,
+    expiresAt: p.expiresAt,
+    createdAt: p.createdAt,
+  }));
+
+  return c.json({ success: true, data: { permissions: formattedPermissions } });
 });
 
 app.get('/users/search', async (c) => {
