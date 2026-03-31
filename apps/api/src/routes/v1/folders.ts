@@ -5,8 +5,8 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from 'zod';
-import { eq, and, isNull, desc, sql } from 'drizzle-orm';
-import { getDb, files, storageBuckets } from '../../db';
+import { eq, and, isNull, desc, sql, or, inArray } from 'drizzle-orm';
+import { getDb, files, storageBuckets, filePermissions, groupMembers } from '../../db';
 import { authMiddleware } from '../../middleware/auth';
 import { checkFilePermission, inheritParentPermissions } from '../../routes/permissions';
 import { throwAppError } from '../../middleware/error';
@@ -156,18 +156,59 @@ app.openapi(listFoldersRoute, async (c) => {
   const { parentId } = c.req.valid('query');
   const db = getDb(c.env.DB);
 
-  const conditions = [eq(files.userId, userId), eq(files.isFolder, true), isNull(files.deletedAt)];
+  // 获取用户所属的用户组
+  const userGroups = await db
+    .select({ groupId: groupMembers.groupId })
+    .from(groupMembers)
+    .where(eq(groupMembers.userId, userId))
+    .all();
+  const groupIds = userGroups.map((g) => g.groupId);
+
+  // 查询用户直接获得授权的文件ID
+  const userPermittedFiles = await db
+    .select({ fileId: filePermissions.fileId })
+    .from(filePermissions)
+    .where(and(eq(filePermissions.userId, userId), eq(filePermissions.subjectType, 'user')))
+    .all();
+
+  // 查询用户组获得授权的文件ID
+  let groupPermittedFiles: { fileId: string }[] = [];
+  if (groupIds.length > 0) {
+    groupPermittedFiles = await db
+      .select({ fileId: filePermissions.fileId })
+      .from(filePermissions)
+      .where(and(inArray(filePermissions.groupId, groupIds), eq(filePermissions.subjectType, 'group')))
+      .all();
+  }
+
+  const permittedIds = new Set([
+    ...userPermittedFiles.map((p) => p.fileId),
+    ...groupPermittedFiles.map((p) => p.fileId),
+  ]);
+
+  // 构建查询条件
+  const conditions: any[] = [eq(files.isFolder, true), isNull(files.deletedAt)];
 
   if (parentId) {
+    // 指定父目录时，检查权限
+    const { hasAccess } = await checkFilePermission(db, parentId, userId, 'read', c.env);
+    if (!hasAccess) {
+      return c.json({ success: true, data: [] });
+    }
     conditions.push(eq(files.parentId, parentId));
   } else {
-    conditions.push(isNull(files.parentId));
+    // 未指定父目录时：返回用户自己的根目录文件夹 + 被授权的文件夹
+    const ownershipCondition = or(
+      and(eq(files.userId, userId), isNull(files.parentId)),
+      permittedIds.size > 0 ? inArray(files.id, Array.from(permittedIds)) : undefined
+    );
+    conditions.push(ownershipCondition);
   }
 
   const folders = await db
     .select()
     .from(files)
-    .where(and(...conditions))
+    .where(and(...conditions.filter(Boolean)))
     .orderBy(desc(files.name))
     .all();
 

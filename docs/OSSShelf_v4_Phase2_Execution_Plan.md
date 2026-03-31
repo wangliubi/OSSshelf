@@ -1,6 +1,9 @@
 # OSSShelf v4.0 第二批次执行计划
 
 > 基于《OSSShelf v4.0 增强优化方案》Phase 2，目标：权限系统 v2 + RESTful v1 API + OpenAPI 文档
+> 
+> **状态：✅ 已完成**
+> **版本：3.6.0**
 
 ---
 
@@ -8,16 +11,17 @@
 
 **执行周期**：3 周
 **核心目标**：构建 RBAC 权限系统、开放 RESTful API、提供 OpenAPI 文档
+**完成日期**：2025年
 
-### 现状分析
+### 现状分析（已完成）
 
-| 模块 | 现状 | 问题 |
+| 模块 | 原现状 | 已解决问题 |
 |------|------|------|
-| 权限管控 | 有 `filePermissions` 表（read/write/admin），支持文件夹递归授权 | 无组/角色概念；权限继承依赖路径前缀字符串比较，脆弱；无时效性/条件权限；Permission check 是逐文件查询 |
-| API 开放 | 所有路由需 JWT auth，已支持 API Key 认证 | 无 API 版本号，无 OpenAPI 文档，无速率限制 |
-| Webhook | `webhooks` 表已存在 | 未实现事件分发逻辑 |
+| 权限管控 | 有 `filePermissions` 表（read/write/admin），支持文件夹递归授权 | ✅ 支持组/角色概念；权限继承基于递归 CTE；支持时效性权限；权限检查已优化 |
+| API 开放 | 所有路由需 JWT auth，已支持 API Key 认证 | ✅ 已有 API 版本号，已有 OpenAPI 文档，已实现速率限制 |
+| Webhook | `webhooks` 表已存在 | ✅ 已实现事件分发逻辑 |
 
-### Phase 1 完成确认
+### Phase 1 完成确认（✅ 已完成）
 
 - [x] 版本控制修复 - `versionManager.ts` 已实现
 - [x] 备忘录基础建设 - 数据库、路由、前端组件已完成
@@ -26,9 +30,9 @@
 
 ---
 
-## Week 4：权限系统 v2 基础
+## Week 4：权限系统 v2 基础（✅ 已完成）
 
-### 任务 4.1：数据库迁移 - 用户组与权限扩展
+### 任务 4.1：数据库迁移 - 用户组与权限扩展（✅ 已完成）
 
 **文件**：`apps/api/migrations/0012_permission_v2.sql`
 
@@ -76,7 +80,7 @@ CREATE INDEX idx_file_permissions_scope   ON file_permissions(scope);
 - 先创建新表，再添加 ALTER 语句
 - 为现有数据设置默认值
 
-### 任务 4.2：更新 Schema 定义
+### 任务 4.2：更新 Schema 定义（✅ 已完成）
 
 **修改文件**：`apps/api/src/db/schema.ts`
 
@@ -132,7 +136,7 @@ export const filePermissions = sqliteTable(
 );
 ```
 
-### 任务 4.3：创建权限解析器模块
+### 任务 4.3：创建权限解析器模块（✅ 已完成）
 
 **文件**：`apps/api/src/lib/permissionResolver.ts`
 
@@ -219,7 +223,7 @@ ORDER BY a.depth ASC,
 LIMIT 1;
 ```
 
-### 任务 4.4：创建用户组路由
+### 任务 4.4：创建用户组路由（✅ 已完成）
 
 **文件**：`apps/api/src/routes/groups.ts`
 
@@ -300,9 +304,9 @@ app.post('/:id/members', async (c) => {
 
 ---
 
-## Week 5：权限 UI 重构
+## Week 5：权限 UI 重构（✅ 已完成）
 
-### 任务 5.1：创建用户组管理组件
+### 任务 5.1：创建用户组管理组件（✅ 已完成）
 
 **目录**：`apps/web/src/components/groups/`
 
@@ -342,7 +346,7 @@ export function GroupList() {
 }
 ```
 
-### 任务 5.2：重构权限管理面板
+### 任务 5.2：重构权限管理面板（✅ 已完成）
 
 **修改文件**：`apps/web/src/components/files/permissions/FilePermissionManager.tsx`
 
@@ -412,7 +416,7 @@ export function FilePermissionManager({ fileId, isOwner }: FilePermissionManager
 }
 ```
 
-### 任务 5.3：创建继承权限提示组件
+### 任务 5.3：创建继承权限提示组件（✅ 已完成）
 
 **文件**：`apps/web/src/components/files/permissions/InheritedPermBadge.tsx`
 
@@ -436,7 +440,7 @@ export function InheritedPermBadge({ sourceFilePath, sourcePermission }: Inherit
 }
 ```
 
-### 任务 5.4：更新权限路由以支持新功能
+### 任务 5.4：更新权限路由以支持新功能（✅ 已完成）
 
 **修改文件**：`apps/api/src/routes/permissions.ts`
 
@@ -498,7 +502,7 @@ app.get('/file/:fileId/resolve', async (c) => {
 });
 ```
 
-### 任务 5.5：添加权限审计日志
+### 任务 5.5：添加权限审计日志（✅ 已完成）
 
 **修改文件**：`apps/api/src/routes/permissions.ts`
 
@@ -525,16 +529,16 @@ await createAuditLog({
 
 ---
 
-## Week 6：RESTful v1 API + OpenAPI 文档
+## Week 6：RESTful v1 API + OpenAPI 文档（✅ 已完成）
 
-### 任务 6.1：安装 OpenAPI 相关依赖
+### 任务 6.1：安装 OpenAPI 相关依赖（✅ 已完成）
 
 **执行命令**：
 ```bash
 pnpm add @hono/zod-openapi zod
 ```
 
-### 任务 6.2：创建 API v1 路由目录结构
+### 任务 6.2：创建 API v1 路由目录结构（✅ 已完成）
 
 **目录**：`apps/api/src/routes/v1/`
 
@@ -548,7 +552,7 @@ pnpm add @hono/zod-openapi zod
 └── openapi.ts         -- OpenAPI 文档配置
 ```
 
-### 任务 6.3：创建 OpenAPI Hono 应用
+### 任务 6.3：创建 OpenAPI Hono 应用（✅ 已完成）
 
 **文件**：`apps/api/src/routes/v1/index.ts`
 
@@ -608,7 +612,7 @@ app.get('/docs', (c) => {
 export default app;
 ```
 
-### 任务 6.4：创建文件 API 路由
+### 任务 6.4：创建文件 API 路由（✅ 已完成）
 
 **文件**：`apps/api/src/routes/v1/files.ts`
 
@@ -765,7 +769,7 @@ app.openapi(deleteFileRoute, async (c) => {
 export { app as filesRoute };
 ```
 
-### 任务 6.5：挂载 v1 API 到主应用
+### 任务 6.5：挂载 v1 API 到主应用（✅ 已完成）
 
 **修改文件**：`apps/api/src/index.ts`
 
@@ -778,7 +782,7 @@ import v1Routes from './routes/v1';
 app.route('/api/v1', v1Routes);
 ```
 
-### 任务 6.7：实现 Webhook 事件分发
+### 任务 6.7：实现 Webhook 事件分发（✅ 已完成）
 
 **文件**：`apps/api/src/lib/webhook.ts`
 
@@ -884,7 +888,7 @@ async function hmacSha256(secret: string, data: string): Promise<string> {
 }
 ```
 
-### 任务 6.8：创建 Webhook 管理路由
+### 任务 6.8：创建 Webhook 管理路由（✅ 已完成）
 
 **文件**：`apps/api/src/routes/webhooks.ts`
 
@@ -1018,9 +1022,9 @@ function generateSecret(): string {
 export default app;
 ```
 
-### 任务 6.9：前端 Webhook 管理界面
+### 任务 6.9：前端 Webhook 管理界面（✅ 已完成）
 
-**目录**：`apps/web/src/components/settings/`
+**目录**：`apps/web/src/components/webhooks/`
 
 **新增组件**：
 ```
@@ -1063,27 +1067,27 @@ Week 6: RESTful v1 API + OpenAPI
 ## 验收标准
 
 ### 权限系统 v2
-- [ ] 可创建/管理用户组
-- [ ] 可为组添加/移除成员
-- [ ] 可为用户或组授予文件权限
-- [ ] 权限支持设置过期时间
-- [ ] 权限继承正常工作（子文件继承父文件夹权限）
-- [ ] 权限缓存正确失效
-- [ ] 递归 CTE 查询性能可接受
-- [ ] 前端权限管理 UI 正常显示和交互
+- [x] 可创建/管理用户组
+- [x] 可为组添加/移除成员
+- [x] 可为用户或组授予文件权限
+- [x] 权限支持设置过期时间
+- [x] 权限继承正常工作（子文件继承父文件夹权限）
+- [x] 权限缓存正确失效
+- [x] 递归 CTE 查询性能可接受
+- [x] 前端权限管理 UI 正常显示和交互
 
 ### RESTful v1 API
-- [ ] /api/v1/* 路由正常工作
-- [ ] OpenAPI 文档可访问（/api/v1/openapi.json）
-- [ ] Swagger UI 正常显示（/api/v1/docs）
-- [ ] API Key 认证正常工作
-- [ ] 所有端点有完整的请求/响应 schema
+- [x] /api/v1/* 路由正常工作
+- [x] OpenAPI 文档可访问（/api/v1/openapi.json）
+- [x] Swagger UI 正常显示（/api/v1/docs）
+- [x] API Key 认证正常工作
+- [x] 所有端点有完整的请求/响应 schema
 
 ### Webhook
-- [ ] 可创建/删除 Webhook
-- [ ] 文件事件正确触发 Webhook
-- [ ] Webhook 签名验证正确
-- [ ] 前端 Webhook 管理界面完整可用
+- [x] 可创建/删除 Webhook
+- [x] 文件事件正确触发 Webhook
+- [x] Webhook 签名验证正确
+- [x] 前端 Webhook 管理界面完整可用
 
 ---
 
@@ -1115,5 +1119,5 @@ Week 6: RESTful v1 API + OpenAPI
 
 ## 后续批次预告
 
-- **Phase 3**：AI 智能化（Workers AI + 语义搜索 + 文件总结）
-- **Phase 4**：体验完善（FTS5 搜索、通知系统、收藏夹、2FA）
+- **Phase 3**（📋 计划中）：AI 智能化（Workers AI + 语义搜索 + 文件总结）
+- **Phase 4**（📋 计划中）：体验完善（FTS5 搜索、通知系统、收藏夹、2FA）

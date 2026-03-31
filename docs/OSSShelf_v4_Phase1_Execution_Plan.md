@@ -1,6 +1,9 @@
 # OSSShelf v4.0 第一批次执行计划
 
 > 基于《OSSShelf v4.0 增强优化方案》Phase 1，目标：基础稳固（版本控制修复 + 备忘录基础 + API Key 机制 + 文件编辑）
+> 
+> **状态：✅ 已完成**
+> **版本：3.5.0**
 
 ---
 
@@ -8,21 +11,22 @@
 
 **执行周期**：3 周
 **核心目标**：填补现有功能的空洞，修复已识别的严重问题
+**完成日期**：2024年
 
-### 现状分析
+### 现状分析（已完成）
 
-| 模块 | 现状 | 问题 |
+| 模块 | 原现状 | 已解决问题 |
 |------|------|------|
-| 版本控制 | `fileVersions` 表已存在，路由已实现 | 文件更新时无自动版本快照；maxVersions 限制未执行；版本清理 cron 已存在但需优化 |
-| 备忘录/笔记 | 几乎缺失 | 需从头建设 |
-| API 开放 | 仅支持 JWT 认证 | 无 API Key 机制 |
-| 文件编辑 | 仅支持新建文本文件 | 不支持编辑已存在文件；不支持在线编辑器 |
+| 版本控制 | `fileVersions` 表已存在，路由已实现 | ✅ 文件更新时自动版本快照；maxVersions 限制已执行；版本清理 cron 已优化 |
+| 备忘录/笔记 | 几乎缺失 | ✅ 已完成建设 |
+| API 开放 | 仅支持 JWT 认证 | ✅ 已实现 API Key 机制 |
+| 文件编辑 | 仅支持新建文本文件 | ✅ 支持编辑已存在文件；支持在线编辑器 |
 
 ---
 
-## Week 1：版本控制修复
+## Week 1：版本控制修复（✅ 已完成）
 
-### 任务 1.1：创建版本管理器模块
+### 任务 1.1：创建版本管理器模块（✅ 已完成）
 
 **文件**：`apps/api/src/lib/versionManager.ts`
 
@@ -56,7 +60,7 @@ export async function pruneExcessVersions(
 }
 ```
 
-### 任务 1.2：集成版本自动触发
+### 任务 1.2：集成版本自动触发（✅ 已完成）
 
 **修改文件**：`apps/api/src/routes/files.ts`
 
@@ -69,7 +73,7 @@ export async function pruneExcessVersions(
 - 在文件内容更新后调用 `createVersionSnapshot()`
 - 需要区分"新建文件"和"更新文件"场景
 
-### 任务 1.3：优化版本清理 Cron
+### 任务 1.3：优化版本清理 Cron（✅ 已完成）
 
 **修改文件**：`apps/api/src/routes/cron.ts`
 
@@ -82,7 +86,7 @@ export async function pruneExcessVersions(
 2. 当 `ref_count = 0` 时，从 R2 删除物理对象
 3. 添加 maxVersions 超量清理逻辑
 
-### 任务 1.4：修复孤儿 r2Key 清理
+### 任务 1.4：修复孤儿 r2Key 清理（✅ 已完成）
 
 **修改文件**：`apps/api/src/lib/dedup.ts`
 
@@ -93,9 +97,9 @@ export async function pruneExcessVersions(
 
 ---
 
-## Week 2：备忘录基础建设
+## Week 2：备忘录基础建设（✅ 已完成）
 
-### 任务 2.1：数据库迁移
+### 任务 2.1：数据库迁移（✅ 已完成）
 
 **文件**：`apps/api/migrations/0010_notes.sql`
 
@@ -148,7 +152,7 @@ CREATE INDEX idx_file_notes_pinned ON file_notes(file_id, is_pinned);
 CREATE INDEX idx_note_mentions_user ON note_mentions(user_id, is_read);
 ```
 
-### 任务 2.2：更新 Schema 定义
+### 任务 2.2：更新 Schema 定义（✅ 已完成）
 
 **修改文件**：`apps/api/src/db/schema.ts`
 
@@ -161,7 +165,7 @@ CREATE INDEX idx_note_mentions_user ON note_mentions(user_id, is_read);
 - 添加 `description` 字段
 - 添加 `noteCount` 字段
 
-### 任务 2.3：创建笔记路由
+### 任务 2.3：创建笔记路由（✅ 已完成）
 
 **文件**：`apps/api/src/routes/notes.ts`
 
@@ -182,7 +186,7 @@ PUT    /api/notes/mentions/:id/read -- 标为已读
 2. **@提及解析**：POST/PUT 时正则扫描 `@username`，查用户表，批量写 `note_mentions`
 3. **files.note_count 维护**：在 notes 路由中手动 `+1/-1`
 
-### 任务 2.4：前端组件开发
+### 任务 2.4：前端组件开发（✅ 已完成）
 
 **目录**：`apps/web/src/components/notes/`
 
@@ -201,7 +205,7 @@ PUT    /api/notes/mentions/:id/read -- 标为已读
 2. NoteEditor 支持实时预览和 @用户 自动补全
 3. NoteCard 显示笔记摘要、作者、时间、操作按钮
 
-### 任务 2.5：集成到文件详情页
+### 任务 2.5：集成到文件详情页（✅ 已完成）
 
 **修改文件**：`apps/web/src/components/share/ShareFilePreview.tsx` 或相关文件详情组件
 
@@ -212,9 +216,9 @@ PUT    /api/notes/mentions/:id/read -- 标为已读
 
 ---
 
-## Week 3：API Key 机制 + 文件编辑功能
+## Week 3：API Key 机制 + 文件编辑功能（✅ 已完成）
 
-### 任务 3.1：数据库迁移 - API Keys
+### 任务 3.1：数据库迁移 - API Keys（✅ 已完成）
 
 **文件**：`apps/api/migrations/0011_api_keys.sql`
 
@@ -257,7 +261,7 @@ buckets:read      -- 查看存储桶配置
 admin:read        -- 管理员查询
 ```
 
-### 任务 3.2：更新 Schema 定义
+### 任务 3.2：更新 Schema 定义（✅ 已完成）
 
 **修改文件**：`apps/api/src/db/schema.ts`
 
@@ -265,7 +269,7 @@ admin:read        -- 管理员查询
 - `apiKeys` 表
 - `webhooks` 表（预留）
 
-### 任务 3.3：扩展认证中间件
+### 任务 3.3：扩展认证中间件（✅ 已完成）
 
 **修改文件**：`apps/api/src/middleware/auth.ts`
 
@@ -292,7 +296,7 @@ export const apiKeyMiddleware = async (c, next) => {
 - 验证 scope 权限
 - 更新 `last_used_at`
 
-### 任务 3.4：创建 API Key 管理路由
+### 任务 3.4：创建 API Key 管理路由（✅ 已完成）
 
 **文件**：`apps/api/src/routes/apiKeys.ts`
 
@@ -310,7 +314,7 @@ PATCH  /api/keys/:id          -- 更新 API Key（名称、scope）
 - 仅在创建时返回明文 key，之后无法恢复
 - 存储时只保存 SHA-256 哈希
 
-### 任务 3.5：前端 API Key 管理界面
+### 任务 3.5：前端 API Key 管理界面（✅ 已完成）
 
 **目录**：`apps/web/src/components/settings/`
 
@@ -327,9 +331,9 @@ PATCH  /api/keys/:id          -- 更新 API Key（名称、scope）
 
 ---
 
-## 文件编辑功能（新增）
+## 文件编辑功能（✅ 已完成）
 
-### 任务 3.6：创建文件编辑 API
+### 任务 3.6：创建文件编辑 API（✅ 已完成）
 
 **修改文件**：`apps/api/src/routes/files.ts`
 
@@ -375,7 +379,7 @@ app.get('/:id/raw', async (c) => {
 - `application/javascript`
 - 其他文本格式（.yaml, .toml, .ini, .env 等）
 
-### 任务 3.7：前端文件编辑器组件
+### 任务 3.7：前端文件编辑器组件（✅ 已完成）
 
 **目录**：`apps/web/src/components/editor/`
 
@@ -405,7 +409,7 @@ app.get('/:id/raw', async (c) => {
 6. 保存前检测内容变化
 7. 版本历史快速查看
 
-### 任务 3.8：集成文件编辑器到文件详情页
+### 任务 3.8：集成文件编辑器到文件详情页（✅ 已完成）
 
 **修改文件**：
 - `apps/web/src/components/share/ShareFilePreview.tsx`
@@ -419,7 +423,7 @@ app.get('/:id/raw', async (c) => {
 5. 显示保存成功/失败提示
 6. 自动刷新文件预览
 
-### 任务 3.9：新建文件增强
+### 任务 3.9：新建文件增强（✅ 已完成）
 
 **修改文件**：`apps/web/src/components/files/FileCreateDialog.tsx`（或类似组件）
 
@@ -476,31 +480,31 @@ Week 3: API Key 机制 + 文件编辑
 ## 验收标准
 
 ### 版本控制
-- [ ] 文件内容更新时自动创建版本快照
-- [ ] 版本数超过 maxVersions 时自动裁剪最老版本
-- [ ] 版本清理 cron 正确处理 ref_count 和孤儿 r2Key
-- [ ] 所有版本操作有完整的审计日志
+- [x] 文件内容更新时自动创建版本快照
+- [x] 版本数超过 maxVersions 时自动裁剪最老版本
+- [x] 版本清理 cron 正确处理 ref_count 和孤儿 r2Key
+- [x] 所有版本操作有完整的审计日志
 
 ### 备忘录
-- [ ] 可为任意文件添加/编辑/删除笔记
-- [ ] 支持 Markdown 格式和安全渲染
-- [ ] 支持 @提及 用户并记录通知
-- [ ] 笔记历史版本可追溯
-- [ ] 前端笔记面板正常显示和交互
+- [x] 可为任意文件添加/编辑/删除笔记
+- [x] 支持 Markdown 格式和安全渲染
+- [x] 支持 @提及 用户并记录通知
+- [x] 笔记历史版本可追溯
+- [x] 前端笔记面板正常显示和交互
 
 ### API Key
-- [ ] 可创建/列出/删除 API Key
-- [ ] API Key 认证正常工作
-- [ ] Scope 权限控制生效
-- [ ] 前端管理界面完整可用
+- [x] 可创建/列出/删除 API Key
+- [x] API Key 认证正常工作
+- [x] Scope 权限控制生效
+- [x] 前端管理界面完整可用
 
 ### 文件编辑
-- [ ] 可编辑文本类型文件（txt, md, json, html, css, js 等）
-- [ ] 编辑器支持语法高亮
-- [ ] 保存时自动创建版本快照
-- [ ] 可查看编辑历史和版本对比
-- [ ] 新建文件支持模板选择
-- [ ] 新建后自动打开编辑器
+- [x] 可编辑文本类型文件（txt, md, json, html, css, js 等）
+- [x] 编辑器支持语法高亮
+- [x] 保存时自动创建版本快照
+- [x] 可查看编辑历史和版本对比
+- [x] 新建文件支持模板选择
+- [x] 新建后自动打开编辑器
 
 ---
 
@@ -520,6 +524,6 @@ Week 3: API Key 机制 + 文件编辑
 
 ## 后续批次预告
 
-- **Phase 2**：权限系统 v2（RBAC + 继承链）+ RESTful v1 API + OpenAPI 文档
-- **Phase 3**：AI 智能化（Workers AI + 语义搜索 + 文件总结）
-- **Phase 4**：体验完善（FTS5 搜索、通知系统、收藏夹、2FA）
+- **Phase 2**（✅ 已完成 - v3.6.0）：权限系统 v2（RBAC + 继承链）+ RESTful v1 API + OpenAPI 文档
+- **Phase 3**（📋 计划中）：AI 智能化（Workers AI + 语义搜索 + 文件总结）
+- **Phase 4**（📋 计划中）：体验完善（FTS5 搜索、通知系统、收藏夹、2FA）
