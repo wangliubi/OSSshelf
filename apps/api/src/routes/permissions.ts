@@ -3,34 +3,43 @@
  * 文件权限与标签路由
  *
  * 功能:
- * - 文件权限授予与撤销
+ * - 文件权限授予与撤销（支持用户和组）
  * - 权限查询与检查
  * - 文件标签管理
  * - 批量标签操作
  */
 
 import { Hono } from 'hono';
-import { eq, and, inArray, like, isNull } from 'drizzle-orm';
-import { getDb, files, filePermissions, users, fileTags } from '../db';
+import { eq, and, inArray, like, isNull, or } from 'drizzle-orm';
+import { getDb, files, filePermissions, users, fileTags, userGroups, groupMembers } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { ERROR_CODES } from '@osshelf/shared';
 import { throwAppError } from '../middleware/error';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 import { createAuditLog, getClientIp, getUserAgent } from '../lib/audit';
+import {
+  checkPermissionWithCache,
+  invalidatePermissionCache,
+  type PermissionLevel,
+} from '../lib/permissionResolver';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('*', authMiddleware);
 
 const grantPermissionSchema = z.object({
   fileId: z.string().min(1),
-  userId: z.string().min(1),
+  userId: z.string().optional(),
+  groupId: z.string().optional(),
   permission: z.enum(['read', 'write', 'admin']),
+  subjectType: z.enum(['user', 'group']).default('user'),
+  expiresAt: z.string().optional(),
 });
 
 const revokePermissionSchema = z.object({
   fileId: z.string().min(1),
-  userId: z.string().min(1),
+  userId: z.string().optional(),
+  groupId: z.string().optional(),
 });
 
 const addTagSchema = z.object({
@@ -60,7 +69,7 @@ export async function checkFilePermission(
   db: ReturnType<typeof getDb>,
   fileId: string,
   userId: string,
-  requiredPermission: 'read' | 'write' | 'admin'
+  requiredPermission: PermissionLevel
 ): Promise<{ hasAccess: boolean; permission: string | null; isOwner: boolean }> {
   const file = await db.select().from(files).where(eq(files.id, fileId)).get();
   if (!file) {
@@ -74,18 +83,58 @@ export async function checkFilePermission(
   const permission = await db
     .select()
     .from(filePermissions)
-    .where(and(eq(filePermissions.fileId, fileId), eq(filePermissions.userId, userId)))
+    .where(
+      and(
+        eq(filePermissions.fileId, fileId),
+        eq(filePermissions.userId, userId),
+        eq(filePermissions.subjectType, 'user')
+      )
+    )
     .get();
 
   if (!permission) {
+    const userGroupIds = await getUserGroupIds(db, userId);
+    if (userGroupIds.length > 0) {
+      const groupPermission = await db
+        .select()
+        .from(filePermissions)
+        .where(
+          and(
+            eq(filePermissions.fileId, fileId),
+            inArray(filePermissions.groupId, userGroupIds),
+            eq(filePermissions.subjectType, 'group')
+          )
+        )
+        .get();
+
+      if (groupPermission) {
+        const permissionLevels = { read: 1, write: 2, admin: 3 };
+        const hasAccess =
+          permissionLevels[groupPermission.permission as keyof typeof permissionLevels] >=
+          permissionLevels[requiredPermission];
+        return { hasAccess, permission: groupPermission.permission, isOwner: false };
+      }
+    }
+
     return { hasAccess: false, permission: null, isOwner: false };
   }
 
   const permissionLevels = { read: 1, write: 2, admin: 3 };
   const hasAccess =
-    permissionLevels[permission.permission as keyof typeof permissionLevels] >= permissionLevels[requiredPermission];
+    permissionLevels[permission.permission as keyof typeof permissionLevels] >=
+    permissionLevels[requiredPermission];
 
   return { hasAccess, permission: permission.permission, isOwner: false };
+}
+
+async function getUserGroupIds(db: ReturnType<typeof getDb>, userId: string): Promise<string[]> {
+  const memberships = await db
+    .select({ groupId: groupMembers.groupId })
+    .from(groupMembers)
+    .where(eq(groupMembers.userId, userId))
+    .all();
+
+  return memberships.map((m) => m.groupId);
 }
 
 app.post('/grant', async (c) => {
@@ -99,7 +148,22 @@ app.post('/grant', async (c) => {
     );
   }
 
-  const { fileId, userId: targetUserId, permission } = result.data;
+  const { fileId, userId: targetUserId, groupId, permission, subjectType, expiresAt } = result.data;
+
+  if (subjectType === 'user' && !targetUserId) {
+    return c.json(
+      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '用户ID不能为空' } },
+      400
+    );
+  }
+
+  if (subjectType === 'group' && !groupId) {
+    return c.json(
+      { success: false, error: { code: ERROR_CODES.VALIDATION_ERROR, message: '用户组ID不能为空' } },
+      400
+    );
+  }
+
   const db = getDb(c.env.DB);
 
   const file = await checkFileOwnership(db, fileId, userId);
@@ -107,29 +171,59 @@ app.post('/grant', async (c) => {
     throwAppError('FILE_NOT_FOUND', '文件不存在或无权限');
   }
 
-  const targetUser = await db.select().from(users).where(eq(users.id, targetUserId)).get();
-  if (!targetUser) {
-    throwAppError('USER_NOT_FOUND', '目标用户不存在');
+  if (subjectType === 'user') {
+    const targetUser = await db.select().from(users).where(eq(users.id, targetUserId!)).get();
+    if (!targetUser) {
+      throwAppError('USER_NOT_FOUND', '目标用户不存在');
+    }
+  } else {
+    const group = await db.select().from(userGroups).where(eq(userGroups.id, groupId!)).get();
+    if (!group) {
+      throwAppError('GROUP_NOT_FOUND', '用户组不存在');
+    }
+
+    const membership = await db
+      .select()
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId!), eq(groupMembers.userId, userId)))
+      .get();
+
+    if (!membership || membership.role !== 'admin') {
+      throwAppError('FORBIDDEN', '只有组管理员可以授权');
+    }
   }
 
   const now = new Date().toISOString();
 
   const grantPermissionForFile = async (fId: string) => {
-    const existing = await db
-      .select()
-      .from(filePermissions)
-      .where(and(eq(filePermissions.fileId, fId), eq(filePermissions.userId, targetUserId)))
-      .get();
+    const whereClause =
+      subjectType === 'user'
+        ? and(eq(filePermissions.fileId, fId), eq(filePermissions.userId, targetUserId!))
+        : and(eq(filePermissions.fileId, fId), eq(filePermissions.groupId, groupId!));
+
+    const existing = await db.select().from(filePermissions).where(whereClause).get();
 
     if (existing) {
-      await db.update(filePermissions).set({ permission, updatedAt: now }).where(eq(filePermissions.id, existing.id));
+      await db
+        .update(filePermissions)
+        .set({
+          permission,
+          expiresAt: expiresAt || null,
+          updatedAt: now,
+        })
+        .where(eq(filePermissions.id, existing.id));
     } else {
       await db.insert(filePermissions).values({
         id: crypto.randomUUID(),
         fileId: fId,
-        userId: targetUserId,
+        userId: subjectType === 'user' ? targetUserId! : null,
+        groupId: subjectType === 'group' ? groupId! : null,
+        subjectType,
         permission,
         grantedBy: userId,
+        expiresAt: expiresAt || null,
+        inheritToChildren: true,
+        scope: 'explicit',
         createdAt: now,
         updatedAt: now,
       });
@@ -152,18 +246,31 @@ app.post('/grant', async (c) => {
     }
   }
 
+  await invalidatePermissionCache(c.env, fileId);
+
   await createAuditLog({
     env: c.env,
     userId,
     action: 'permission.grant',
     resourceType: 'permission',
     resourceId: fileId,
-    details: { targetUserId, permission, fileName: file.name, isFolder: file.isFolder },
+    details: {
+      targetUserId,
+      targetGroupId: groupId,
+      permission,
+      subjectType,
+      expiresAt,
+      fileName: file.name,
+      isFolder: file.isFolder,
+    },
     ipAddress: getClientIp(c),
     userAgent: getUserAgent(c),
   });
 
-  return c.json({ success: true, data: { message: '权限已授予', fileId, userId: targetUserId, permission } });
+  return c.json({
+    success: true,
+    data: { message: '权限已授予', fileId, userId: targetUserId, groupId, permission },
+  });
 });
 
 app.post('/revoke', async (c) => {
@@ -177,7 +284,7 @@ app.post('/revoke', async (c) => {
     );
   }
 
-  const { fileId, userId: targetUserId } = result.data;
+  const { fileId, userId: targetUserId, groupId } = result.data;
   const db = getDb(c.env.DB);
 
   const file = await checkFileOwnership(db, fileId, userId);
@@ -185,17 +292,21 @@ app.post('/revoke', async (c) => {
     throwAppError('FILE_NOT_FOUND', '文件不存在或无权限');
   }
 
-  await db
-    .delete(filePermissions)
-    .where(and(eq(filePermissions.fileId, fileId), eq(filePermissions.userId, targetUserId)));
+  const whereClause = targetUserId
+    ? and(eq(filePermissions.fileId, fileId), eq(filePermissions.userId, targetUserId))
+    : and(eq(filePermissions.fileId, fileId), eq(filePermissions.groupId, groupId!));
+
+  await db.delete(filePermissions).where(whereClause);
+
+  await invalidatePermissionCache(c.env, fileId);
 
   await createAuditLog({
     env: c.env,
     userId,
-    action: 'file.delete',
+    action: 'permission.revoke',
     resourceType: 'permission',
     resourceId: fileId,
-    details: { targetUserId, fileName: file.name },
+    details: { targetUserId, targetGroupId: groupId, fileName: file.name },
     ipAddress: getClientIp(c),
     userAgent: getUserAgent(c),
   });
@@ -217,14 +328,20 @@ app.get('/file/:fileId', async (c) => {
     .select({
       id: filePermissions.id,
       userId: filePermissions.userId,
+      groupId: filePermissions.groupId,
       permission: filePermissions.permission,
       grantedBy: filePermissions.grantedBy,
+      subjectType: filePermissions.subjectType,
+      expiresAt: filePermissions.expiresAt,
+      scope: filePermissions.scope,
       createdAt: filePermissions.createdAt,
       userName: users.name,
       userEmail: users.email,
+      groupName: userGroups.name,
     })
     .from(filePermissions)
     .leftJoin(users, eq(filePermissions.userId, users.id))
+    .leftJoin(userGroups, eq(filePermissions.groupId, userGroups.id))
     .where(eq(filePermissions.fileId, fileId))
     .all();
 
@@ -235,10 +352,15 @@ app.get('/file/:fileId', async (c) => {
       permissions: permissions.map((p) => ({
         id: p.id,
         userId: p.userId,
+        groupId: p.groupId,
         permission: p.permission,
         grantedBy: p.grantedBy,
+        subjectType: p.subjectType,
+        expiresAt: p.expiresAt,
+        scope: p.scope,
         userName: p.userName,
         userEmail: p.userEmail,
+        groupName: p.groupName,
         createdAt: p.createdAt,
       })),
     },
@@ -389,18 +511,28 @@ app.get('/check/:fileId', async (c) => {
   });
 });
 
-// ── 用户搜索接口（供普通用户搜索其他用户以授权）────────────────────────────────
+app.get('/resolve/:fileId', async (c) => {
+  const userId = c.get('userId')!;
+  const fileId = c.req.param('fileId');
+  const db = getDb(c.env.DB);
+
+  const resolution = await checkPermissionWithCache(db, c.env, fileId, userId, 'read');
+
+  return c.json({
+    success: true,
+    data: resolution,
+  });
+});
+
 app.get('/users/search', async (c) => {
   const userId = c.get('userId')!;
   const query = c.req.query('q') || '';
   const db = getDb(c.env.DB);
 
-  // 最少需要2个字符才能搜索
   if (query.length < 2) {
     return c.json({ success: true, data: [] });
   }
 
-  // 搜索邮箱匹配的用户，排除当前用户自己
   const matchedUsers = await db
     .select({
       id: users.id,
@@ -412,7 +544,6 @@ app.get('/users/search', async (c) => {
     .where(like(users.email, `%${query}%`))
     .limit(10);
 
-  // 过滤掉当前用户
   const filteredUsers = matchedUsers.filter((u) => u.id !== userId);
 
   return c.json({

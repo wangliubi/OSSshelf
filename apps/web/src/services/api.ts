@@ -720,9 +720,15 @@ export interface SearchableUser {
 }
 
 export const permissionsApi = {
-  grant: (data: { fileId: string; userId: string; permission: 'read' | 'write' | 'admin' }) =>
-    api.post<ApiResponse<{ message: string }>>('/api/permissions/grant', data),
-  revoke: (data: { fileId: string; userId: string }) =>
+  grant: (data: {
+    fileId: string;
+    userId?: string;
+    groupId?: string;
+    permission: 'read' | 'write' | 'admin';
+    subjectType?: 'user' | 'group';
+    expiresAt?: string;
+  }) => api.post<ApiResponse<{ message: string }>>('/api/permissions/grant', data),
+  revoke: (data: { fileId: string; userId?: string; groupId?: string }) =>
     api.post<ApiResponse<{ message: string }>>('/api/permissions/revoke', data),
   getFilePermissions: (fileId: string) =>
     api.get<
@@ -730,10 +736,15 @@ export const permissionsApi = {
         isOwner: boolean;
         permissions: Array<{
           id: string;
-          userId: string;
+          userId: string | null;
+          groupId: string | null;
           permission: string;
           userName: string | null;
           userEmail: string;
+          groupName?: string;
+          subjectType: 'user' | 'group';
+          expiresAt: string | null;
+          scope: 'explicit' | 'inherited';
           createdAt: string;
         }>;
       }>
@@ -742,6 +753,17 @@ export const permissionsApi = {
     api.get<ApiResponse<{ hasAccess: boolean; permission: string | null; isOwner: boolean }>>(
       `/api/permissions/check/${fileId}`
     ),
+  resolvePermission: (fileId: string) =>
+    api.get<
+      ApiResponse<{
+        hasAccess: boolean;
+        permission: string | null;
+        source: 'explicit' | 'inherited' | 'owner';
+        sourceFileId?: string;
+        sourceFilePath?: string;
+        expiresAt?: string;
+      }>
+    >(`/api/permissions/resolve/${fileId}`),
   searchUsers: (query: string) =>
     api.get<ApiResponse<SearchableUser[]>>('/api/permissions/users/search', { params: { q: query } }),
   addTag: (data: { fileId: string; name: string; color?: string }) =>
@@ -888,6 +910,80 @@ export const fileContentApi = {
       `/api/files/${fileId}/content`,
       data
     ),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Groups (用户组)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface UserGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  ownerId: string;
+  isOwner: boolean;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: 'member' | 'admin';
+  addedBy: string | null;
+  createdAt: string;
+  name: string | null;
+  email: string;
+}
+
+export const groupsApi = {
+  list: () =>
+    api.get<ApiResponse<{ owned: UserGroup[]; memberOf: UserGroup[] }>>('/api/groups'),
+  create: (data: { name: string; description?: string }) =>
+    api.post<ApiResponse<UserGroup>>('/api/groups', data),
+  get: (id: string) => api.get<ApiResponse<UserGroup>>(`/api/groups/${id}`),
+  update: (id: string, data: { name?: string; description?: string }) =>
+    api.put<ApiResponse<{ message: string }>>(`/api/groups/${id}`, data),
+  delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/api/groups/${id}`),
+  getMembers: (id: string) => api.get<ApiResponse<GroupMember[]>>(`/api/groups/${id}/members`),
+  addMember: (groupId: string, data: { userId: string; role?: 'member' | 'admin' }) =>
+    api.post<ApiResponse<GroupMember>>(`/api/groups/${groupId}/members`, data),
+  removeMember: (groupId: string, userId: string) =>
+    api.delete<ApiResponse<{ message: string }>>(`/api/groups/${groupId}/members/${userId}`),
+  updateMemberRole: (groupId: string, userId: string, role: 'member' | 'admin') =>
+    api.put<ApiResponse<{ message: string }>>(`/api/groups/${groupId}/members/${userId}/role`, { role }),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Webhooks
+// ─────────────────────────────────────────────────────────────────────────────
+export interface Webhook {
+  id: string;
+  userId: string;
+  url: string;
+  events: string[];
+  isActive: boolean;
+  lastStatus: number | null;
+  createdAt: string;
+}
+
+export interface WebhookEvent {
+  value: string;
+  label: string;
+  description: string;
+}
+
+export const webhooksApi = {
+  list: () => api.get<ApiResponse<Webhook[]>>('/api/webhooks'),
+  create: (data: { url: string; events: string[]; secret?: string }) =>
+    api.post<ApiResponse<Webhook & { secret: string; warning: string }>>('/api/webhooks', data),
+  get: (id: string) => api.get<ApiResponse<Webhook>>(`/api/webhooks/${id}`),
+  update: (id: string, data: { url?: string; events?: string[]; isActive?: boolean }) =>
+    api.put<ApiResponse<{ message: string }>>(`/api/webhooks/${id}`, data),
+  delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/api/webhooks/${id}`),
+  test: (id: string) => api.post<ApiResponse<{ message: string }>>(`/api/webhooks/${id}/test`),
+  getEvents: () => api.get<ApiResponse<WebhookEvent[]>>('/api/webhooks/events'),
 };
 
 export default api;

@@ -139,7 +139,7 @@ export function FilePermissionsDialog({ fileId, fileName, isFolder, onClose }: F
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-red-500 hover:text-red-600"
-                              onClick={() => revokeMutation.mutate(perm.userId)}
+                              onClick={() => perm.userId && revokeMutation.mutate(perm.userId)}
                               disabled={revokeMutation.isPending}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
