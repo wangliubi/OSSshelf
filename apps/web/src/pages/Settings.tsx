@@ -200,11 +200,11 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold">设置</h1>
+        <h1 className="text-xl lg:text-2xl font-bold">设置</h1>
         <p className="text-muted-foreground text-sm mt-0.5">管理您的账户与偏好</p>
       </div>
 
-      <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
+      <div className="flex gap-1 p-1 bg-muted/50 rounded-lg overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -212,14 +212,14 @@ export default function Settings() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                'flex items-center gap-1.5 px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0',
                 activeTab === tab.id
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <Icon className="h-4 w-4" />
-              {tab.label}
+              <span className="hidden xs:inline">{tab.label}</span>
             </button>
           );
         })}

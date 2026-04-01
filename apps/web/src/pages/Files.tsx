@@ -15,6 +15,7 @@ import { useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useFileStore, type ViewMode } from '@/stores/files';
+import type { AdvancedSearchCondition } from '@/types/files';
 import { useAuthStore } from '@/stores/auth';
 import { filesApi, bucketsApi, permissionsApi, shareApi, searchApi, type StorageBucket } from '@/services/api';
 import { getPresignedDownloadUrl, presignUpload } from '@/services/presignUpload';
@@ -56,6 +57,7 @@ import type { FileItem } from '@osshelf/shared';
 import { cn, decodeFileName } from '@/utils';
 
 import { NewFolderDialog, NewFileDialog, FILE_TEMPLATES, ShareDialog, FileListContainer } from '@/components/files';
+import { MobileFilesToolbar, MobileSearchPanel } from '@/components/files/MobileFilesToolbar';
 import { UploadLinkDialog } from '@/components/files/dialogs';
 import { DirectLinkDialog } from '@/components/files/dialogs';
 import { VersionHistory } from '@/components/files/VersionHistory';
@@ -581,362 +583,109 @@ export default function Files() {
           <BreadcrumbNav items={breadcrumbs} />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap md:hidden">
-          <div className="relative w-full order-first">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              ref={searchInputRef}
-              className="pl-8 pr-16 h-9 w-full rounded-md border bg-background text-sm outline-none focus:ring-2 focus:ring-ring"
-              placeholder={tagSearchQuery ? `标签: ${tagSearchQuery}` : '搜索文件...'}
-              value={searchInput}
-              onChange={(e) => handleSearchInput(e.target.value)}
-              onBlur={() =>
-                setTimeout(() => {
-                  setShowSuggestions(false);
-                  setShowSearchHistory(false);
-                }, 200)
-              }
-              onFocus={() => {
-                if (searchInput.length >= 2 && searchSuggestions.length > 0) {
-                  setShowSuggestions(true);
-                } else if (searchInput.length === 0) {
-                  refetchHistory();
-                  setShowSearchHistory(true);
-                }
-              }}
-            />
-            {(searchInput || tagSearchQuery) && (
-              <button
-                className="absolute right-9 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setSearchInput('');
-                  setSearchQuery('');
-                  setTagSearchQuery(null);
-                  setShowSuggestions(false);
-                  setShowSearchHistory(false);
-                }}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <button
-              className={cn(
-                'absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded transition-colors',
-                showAdvancedSearch ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'
-              )}
-              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-              title="高级搜索"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </button>
-            {/* 自动补全建议 */}
-            {showSuggestions && searchSuggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-md shadow-lg z-50 max-h-48 overflow-auto">
-                {searchSuggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors"
-                    onMouseDown={() => handleSuggestionClick(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* 搜索历史下拉（仅输入框为空时显示） */}
-            {showSearchHistory &&
-              !showSuggestions &&
-              searchInput.length === 0 &&
-              (searchHistoryData?.length ?? 0) > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-md shadow-lg z-50 max-h-56 overflow-auto">
-                  <div className="flex items-center justify-between px-3 py-1.5 border-b">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <History className="h-3 w-3" />
-                      搜索历史
-                    </span>
-                    <button
-                      className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                      onMouseDown={async () => {
-                        await searchApi.clearHistory();
-                        refetchHistory();
-                        setShowSearchHistory(false);
-                      }}
-                    >
-                      清空
-                    </button>
-                  </div>
-                  {searchHistoryData?.map((item) => (
-                    <div key={item.id} className="flex items-center group hover:bg-muted/50 transition-colors">
-                      <button
-                        className="flex-1 px-3 py-2 text-left text-sm"
-                        onMouseDown={() => {
-                          handleSuggestionClick(item.query);
-                          setShowSearchHistory(false);
-                        }}
-                      >
-                        {item.query}
-                      </button>
-                      <button
-                        className="px-2 py-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                        onMouseDown={async (e) => {
-                          e.stopPropagation();
-                          await searchApi.deleteHistory(item.id);
-                          refetchHistory();
-                        }}
-                      >
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-          </div>
+        <MobileSearchPanel
+          searchInput={searchInput}
+          tagSearchQuery={tagSearchQuery}
+          showAdvancedSearch={showAdvancedSearch}
+          advancedLogic={advancedLogic}
+          advancedConditions={advancedConditions}
+          searchSuggestions={searchSuggestions}
+          showSuggestions={showSuggestions}
+          showSearchHistory={showSearchHistory}
+          searchHistoryData={searchHistoryData ?? []}
+          aiConfigured={aiConfigured}
+          semanticSearch={semanticSearch}
+          onSearchInputChange={handleSearchInput}
+          onClearSearch={() => {
+            setSearchInput('');
+            setSearchQuery('');
+            setTagSearchQuery(null);
+            setShowSuggestions(false);
+            setShowSearchHistory(false);
+          }}
+          onToggleAdvancedSearch={() => setShowAdvancedSearch(!showAdvancedSearch)}
+          onSuggestionClick={(suggestion) => {
+            setSearchInput(suggestion);
+            setSearchQuery(suggestion);
+            setShowSuggestions(false);
+            setShowSearchHistory(false);
+          }}
+          onAdvancedLogicChange={(logic) => setAdvancedLogic(logic)}
+          onAddCondition={() => {
+            setAdvancedConditions([...advancedConditions, { field: 'name', operator: 'contains', value: '' }]);
+          }}
+          onRemoveCondition={(idx) => {
+            setAdvancedConditions(advancedConditions.filter((_, i) => i !== idx));
+          }}
+          onUpdateCondition={(idx, key, value) => {
+            const newConditions = [...advancedConditions];
+            const current = newConditions[idx];
+            if (!current) return;
+            if (key === 'field') {
+              newConditions[idx] = {
+                field: value as AdvancedSearchCondition['field'],
+                operator: current.operator,
+                value: current.value,
+              };
+            } else if (key === 'operator') {
+              newConditions[idx] = {
+                field: current.field,
+                operator: value as AdvancedSearchCondition['operator'],
+                value: current.value,
+              };
+            } else {
+              newConditions[idx] = {
+                field: current.field,
+                operator: current.operator,
+                value,
+              };
+            }
+            setAdvancedConditions(newConditions);
+          }}
+          onClearConditions={() => setAdvancedConditions([])}
+          onToggleSemanticSearch={() => setSemanticSearch(!semanticSearch)}
+          onClearTagSearch={clearTagSearch}
+          onClearHistory={async () => {
+            await searchApi.clearHistory();
+            refetchHistory();
+            setShowSearchHistory(false);
+          }}
+          onDeleteHistoryItem={async (id) => {
+            await searchApi.deleteHistory(id);
+            refetchHistory();
+          }}
+          onFocus={() => {
+            if (searchInput.length >= 2 && searchSuggestions.length > 0) {
+              setShowSuggestions(true);
+            } else if (searchInput.length === 0) {
+              refetchHistory();
+              setShowSearchHistory(true);
+            }
+          }}
+          onBlur={() => {
+            setTimeout(() => {
+              setShowSuggestions(false);
+              setShowSearchHistory(false);
+            }, 200);
+          }}
+        />
 
-          {aiConfigured && (
-            <Button
-              variant={semanticSearch ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSemanticSearch(!semanticSearch)}
-              title={semanticSearch ? '语义搜索已开启' : '开启语义搜索'}
-              className="flex-shrink-0"
-            >
-              <Sparkles className="h-3.5 w-3.5 mr-1" />
-              {semanticSearch ? '语义' : '关键词'}
-            </Button>
-          )}
-
-          {showAdvancedSearch && (
-            <div className="w-full flex items-center gap-2 p-2 bg-muted/30 border rounded-md">
-              <select
-                className="h-7 px-2 text-xs border rounded bg-background flex-1"
-                value={advancedLogic}
-                onChange={(e) => setAdvancedLogic(e.target.value as 'and' | 'or')}
-              >
-                <option value="and">且</option>
-                <option value="or">或</option>
-              </select>
-              <button
-                className="h-7 px-2 text-xs border rounded bg-background hover:bg-muted/50"
-                onClick={() => {
-                  setAdvancedConditions([...advancedConditions, { field: 'name', operator: 'contains', value: '' }]);
-                }}
-              >
-                + 添加条件
-              </button>
-              {advancedConditions.length > 0 && (
-                <button
-                  className="h-7 px-2 text-xs border rounded bg-background hover:bg-muted/50"
-                  onClick={() => setAdvancedConditions([])}
-                >
-                  清除
-                </button>
-              )}
-            </div>
-          )}
-
-          {advancedConditions.map((condition, idx) => (
-            <div key={idx} className="w-full flex items-center gap-1 p-1.5 bg-muted/20 border rounded text-xs">
-              <select
-                className="h-6 px-1.5 border rounded bg-background flex-1"
-                value={condition.field}
-                onChange={(e) => {
-                  const newConditions = [...advancedConditions];
-                  newConditions[idx] = { ...condition, field: e.target.value as any };
-                  setAdvancedConditions(newConditions);
-                }}
-              >
-                <option value="name">文件名</option>
-                <option value="mimeType">类型</option>
-                <option value="size">大小</option>
-                <option value="createdAt">创建时间</option>
-                <option value="updatedAt">修改时间</option>
-                <option value="tags">标签</option>
-              </select>
-              <select
-                className="h-6 px-1.5 border rounded bg-background flex-1"
-                value={condition.operator}
-                onChange={(e) => {
-                  const newConditions = [...advancedConditions];
-                  newConditions[idx] = { ...condition, operator: e.target.value as any };
-                  setAdvancedConditions(newConditions);
-                }}
-              >
-                <option value="contains">包含</option>
-                <option value="equals">等于</option>
-                <option value="startsWith">开头是</option>
-                <option value="endsWith">结尾是</option>
-                {condition.field === 'size' && (
-                  <>
-                    <option value="gt">大于</option>
-                    <option value="lt">小于</option>
-                  </>
-                )}
-              </select>
-              <input
-                className="h-6 flex-1 px-1.5 border rounded bg-background"
-                value={condition.value as string}
-                onChange={(e) => {
-                  const newConditions = [...advancedConditions];
-                  newConditions[idx] = { ...condition, value: e.target.value };
-                  setAdvancedConditions(newConditions);
-                }}
-                placeholder="输入值..."
-              />
-              <button
-                className="h-6 w-6 flex items-center justify-center hover:bg-muted/50 rounded"
-                onClick={() => {
-                  setAdvancedConditions(advancedConditions.filter((_, i) => i !== idx));
-                }}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-
-          {tagSearchQuery && (
-            <div className="w-full flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 border border-primary/20 rounded-md text-sm">
-              <Tag className="h-3.5 w-3.5 text-primary" />
-              <span className="text-primary font-medium">{tagSearchQuery}</span>
-              <button onClick={clearTagSearch} className="ml-1 hover:bg-primary/20 rounded p-0.5">
-                <X className="h-3 w-3 text-primary" />
-              </button>
-            </div>
-          )}
-
-          <div className="w-full flex items-center gap-2">
-            <div className="flex border rounded-md overflow-hidden flex-1">
-              {viewModes.map(({ mode, icon: Icon, label }) => (
-                <Button
-                  key={mode}
-                  variant="ghost"
-                  size="icon"
-                  className={cn('rounded-none h-8 w-8 flex-1', viewMode === mode && !galleryMode && 'bg-accent')}
-                  onClick={() => {
-                    setViewMode(mode);
-                    setGalleryMode(false);
-                  }}
-                  title={label}
-                >
-                  <Icon className="h-4 w-4" />
-                </Button>
-              ))}
-              {hasImages && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn('rounded-none h-8 w-8 border-l', galleryMode && 'bg-accent')}
-                  onClick={() => setGalleryMode(true)}
-                  title="图库"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            <Button variant="outline" size="sm" onClick={() => handleSort('name')} className="flex-shrink-0">
-              名称
-              {sortBy === 'name' &&
-                (sortOrder === 'asc' ? (
-                  <SortAsc className="h-3.5 w-3.5 ml-1" />
-                ) : (
-                  <SortDesc className="h-3.5 w-3.5 ml-1" />
-                ))}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleSort('size')} className="flex-shrink-0">
-              大小
-              {sortBy === 'size' &&
-                (sortOrder === 'asc' ? (
-                  <SortAsc className="h-3.5 w-3.5 ml-1" />
-                ) : (
-                  <SortDesc className="h-3.5 w-3.5 ml-1" />
-                ))}
-            </Button>
-          </div>
-
-          <div className="w-full flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowNewFileDialog(true)} className="flex-1">
-              <FilePlus className="h-4 w-4 mr-1" />
-              新建文件
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowNewFolderDialog(true)} className="flex-1">
-              <FolderPlus className="h-4 w-4 mr-1" />
-              新建文件夹
-            </Button>
-          </div>
-
-          <div className="w-full flex items-center gap-2">
-            <label className="flex-1">
-              <Button variant="outline" size="sm" asChild className="w-full">
-                <span>
-                  <Upload className="h-4 w-4 mr-1" />
-                  上传文件
-                </span>
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                multiple
-                onChange={(e) => {
-                  Array.from(e.target.files || []).forEach((file) => {
-                    const key = `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-                    handleUpload(file, key);
-                  });
-                  e.target.value = '';
-                }}
-              />
-            </label>
-            <label className="flex-1">
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                disabled={!currentFolderInfo?.permissions?.some((p) => p.permission === 'write')}
-                className="w-full"
-              >
-                <span>
-                  <FolderInput className="h-4 w-4 mr-1" />
-                  上传文件夹
-                </span>
-              </Button>
-              <input
-                ref={folderInputRef}
-                type="file"
-                className="hidden"
-                webkitdirectory=""
-                directory=""
-                multiple
-                onChange={(e) => {
-                  const files = e.target.files;
-                  if (!files || files.length === 0) return;
-                  const rootFolderName = (files[0] as any).webkitRelativePath?.split('/')[0] || '文件夹';
-                  toast({
-                    title: `开始上传文件夹 "${rootFolderName}"`,
-                    description: `${files.length} 个文件`,
-                  });
-                  uploadFilesWithRelativePath(files);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-          </div>
-
-          <div className="w-full flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => selectAll(displayFiles)}
-              disabled={displayFiles.length === 0}
-              className="flex-1"
-            >
-              <CheckSquare className="h-4 w-4 mr-1" />
-              全选
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="flex-1">
-              <RefreshCw className="h-4 w-4 mr-1" />
-              刷新
-            </Button>
-          </div>
-        </div>
+        <MobileFilesToolbar
+          viewMode={viewMode}
+          galleryMode={galleryMode}
+          hasImages={hasImages}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onViewModeChange={(mode) => {
+            setViewMode(mode);
+            setGalleryMode(false);
+          }}
+          onGalleryModeChange={setGalleryMode}
+          onSort={handleSort}
+          onNewFile={() => setShowNewFileDialog(true)}
+          onNewFolder={() => setShowNewFolderDialog(true)}
+          onUpload={() => fileInputRef.current?.click()}
+        />
 
         <div className="hidden md:flex items-center gap-2 flex-wrap">
           <div className="relative">
@@ -1327,30 +1076,30 @@ export default function Files() {
         </div>
       )}
 
-      {showNewFolderDialog && (
-        <NewFolderDialog
-          isRoot={!folderId}
-          name={newFolderName}
-          bucketId={newFolderBucketId}
-          onNameChange={setNewFolderName}
-          onBucketChange={setNewFolderBucketId}
-          onConfirm={() => {
-            if (!newFolderName.trim()) return;
-            createFolderMutation.mutate(
-              {
-                name: newFolderName.trim(),
-                parentId: folderId || null,
-                bucketId: newFolderBucketId,
-              },
-              {
-                onSuccess: () => resetNewFolderDialog(),
-              }
-            );
-          }}
-          onCancel={resetNewFolderDialog}
-          loading={createFolderMutation.isPending}
-        />
-      )}
+      <NewFolderDialog
+        open={showNewFolderDialog}
+        isRoot={!folderId}
+        name={newFolderName}
+        bucketId={newFolderBucketId}
+        onNameChange={setNewFolderName}
+        onBucketChange={setNewFolderBucketId}
+        onConfirm={() => {
+          if (!newFolderName.trim()) return;
+          createFolderMutation.mutate(
+            {
+              name: newFolderName.trim(),
+              parentId: folderId || null,
+              bucketId: newFolderBucketId,
+            },
+            {
+              onSuccess: () => resetNewFolderDialog(),
+            }
+          );
+        }}
+        onCancel={resetNewFolderDialog}
+        loading={createFolderMutation.isPending}
+      />
+
 
       {showNewFileDialog && (
         <NewFileDialog
@@ -1446,16 +1195,16 @@ export default function Files() {
         />
       )}
 
-      {renameFile && (
-        <RenameDialog
-          currentName={renameFile.name}
-          isPending={renameMutation.isPending}
-          onConfirm={(name) =>
-            renameMutation.mutate({ id: renameFile.id, name }, { onSuccess: () => setRenameFile(null) })
-          }
-          onCancel={() => setRenameFile(null)}
-        />
-      )}
+      <RenameDialog
+        open={!!renameFile}
+        currentName={renameFile?.name || ''}
+        isPending={renameMutation.isPending}
+        onConfirm={(name) =>
+          renameMutation.mutate({ id: renameFile!.id, name }, { onSuccess: () => setRenameFile(null) })
+        }
+        onCancel={() => setRenameFile(null)}
+      />
+
 
       {moveFile && (
         <MoveFolderPicker
