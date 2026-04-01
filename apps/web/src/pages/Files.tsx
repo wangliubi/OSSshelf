@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useFileStore, type ViewMode } from '@/stores/files';
 import type { AdvancedSearchCondition } from '@/types/files';
@@ -52,6 +52,7 @@ import {
   History,
   Trash2 as TrashIcon,
   Sparkles,
+  Star,
 } from 'lucide-react';
 import type { FileItem } from '@osshelf/shared';
 import { cn, decodeFileName } from '@/utils';
@@ -72,6 +73,8 @@ import { useFilesPageState } from '@/hooks/useFilesPageState';
 export default function Files() {
   const { folderId } = useParams<{ folderId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showStarred = searchParams.get('starred') === 'true';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { token } = useAuthStore();
@@ -217,8 +220,8 @@ export default function Files() {
     isLoading,
     refetch,
   } = useQuery<FileItem[]>({
-    queryKey: ['files', folderId],
-    queryFn: () => filesApi.list({ parentId: folderId || null }).then((r) => r.data.data ?? []),
+    queryKey: ['files', folderId, showStarred],
+    queryFn: () => filesApi.list({ parentId: folderId || null, starred: showStarred ? 'true' : undefined }).then((r) => r.data.data ?? []),
   });
 
   const fileIds = files.map((f) => f.id);
@@ -481,6 +484,20 @@ export default function Files() {
     onDelete: (file: FileItem) => {
       if (confirm(`将 "${decodeFileName(file.name)}" 移入回收站？`)) {
         deleteMutation.mutate(file.id);
+      }
+    },
+    onStar: async (file: FileItem) => {
+      try {
+        if ((file as any).isStarred) {
+          await filesApi.unstar(file.id);
+          toast({ title: '已取消收藏' });
+        } else {
+          await filesApi.star(file.id);
+          toast({ title: '已收藏' });
+        }
+        refetch();
+      } catch (error) {
+        toast({ title: '操作失败', variant: 'destructive' });
       }
     },
   };
@@ -963,6 +980,23 @@ export default function Files() {
 
           <Button variant="outline" size="sm" onClick={() => refetch()} title="刷新当前目录">
             <RefreshCw className="h-4 w-4" />
+          </Button>
+
+          <Button
+            variant={showStarred ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              if (showStarred) {
+                searchParams.delete('starred');
+              } else {
+                searchParams.set('starred', 'true');
+              }
+              setSearchParams(searchParams);
+            }}
+            title={showStarred ? '显示全部文件' : '只显示收藏文件'}
+          >
+            <Star className={cn('h-4 w-4', showStarred && 'fill-current')} />
+            {showStarred ? '全部' : '收藏'}
           </Button>
 
           <Button variant="outline" size="sm" onClick={() => setShowNewFileDialog(true)} className="hidden sm:flex">
