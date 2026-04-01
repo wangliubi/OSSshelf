@@ -684,6 +684,8 @@ export const searchApi = {
     sortOrder?: 'asc' | 'desc';
     page?: number;
     limit?: number;
+    semantic?: boolean;
+    hybrid?: boolean;
   }) => api.get<ApiResponse<FileSearchResult>>('/api/search', { params }),
   advanced: (data: {
     conditions: Array<{

@@ -50,6 +50,7 @@ import {
   Search,
   History,
   Trash2 as TrashIcon,
+  Sparkles,
 } from 'lucide-react';
 import type { FileItem } from '@osshelf/shared';
 import { cn, decodeFileName } from '@/utils';
@@ -174,6 +175,9 @@ export default function Files() {
     handleSuggestionClick,
     handleTagClick,
     clearTagSearch,
+    semanticSearch,
+    setSemanticSearch,
+    aiConfigured,
   } = fileSearch;
 
   const { data: breadcrumbs = [] } = useQuery<BreadcrumbItem[]>({
@@ -810,6 +814,18 @@ export default function Files() {
                 </div>
               )}
           </div>
+
+          {aiConfigured && (
+            <Button
+              variant={semanticSearch ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSemanticSearch(!semanticSearch)}
+              title={semanticSearch ? '语义搜索已开启' : '开启语义搜索'}
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              {semanticSearch ? '语义' : '关键词'}
+            </Button>
+          )}
 
           {showAdvancedSearch && (
             <div className="flex items-center gap-2 p-2 bg-muted/30 border rounded-md">

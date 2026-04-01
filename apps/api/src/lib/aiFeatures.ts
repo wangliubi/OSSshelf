@@ -1,17 +1,21 @@
 /**
  * aiFeatures.ts
  * AI 功能模块
+ *
+ * 功能:
+ * - 文件摘要生成（自动触发）
+ * - 图片智能描述（自动触发）
+ * - 智能重命名建议
  */
 
 import type { Env } from '../types/env';
 import { getDb, files } from '../db';
 import { eq } from 'drizzle-orm';
 import { getFileContent } from './utils';
+import { isEditableFile } from '@osshelf/shared';
 
 const SUMMARY_MODEL = '@cf/meta/llama-3.1-8b-instruct' as const;
-// llava: 图片理解，返回字段为 description
 const IMAGE_CAPTION_MODEL = '@cf/llava-hf/llava-1.5-7b-hf' as const;
-// resnet-50: 快速分类标签（英文），作为 llava 的补充
 const IMAGE_TAG_MODEL = '@cf/microsoft/resnet-50' as const;
 
 export interface SummaryResult {
@@ -28,17 +32,16 @@ export interface RenameSuggestion {
   suggestions: string[];
 }
 
-const TEXT_MIME_PREFIXES = [
-  'text/',
-  'application/json',
-  'application/xml',
-  'application/javascript',
-  'application/typescript',
-];
+export function canGenerateSummary(mimeType: string | null, fileName: string): boolean {
+  return isEditableFile(mimeType, fileName);
+}
 
-function isTextFile(mimeType: string | null): boolean {
-  if (!mimeType) return false;
-  return TEXT_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
+export function isImageFile(mimeType: string | null): boolean {
+  return mimeType?.startsWith('image/') ?? false;
+}
+
+export function isAIConfigured(env: Env): boolean {
+  return !!(env.AI && env.VECTORIZE);
 }
 
 export async function generateFileSummary(
@@ -204,7 +207,7 @@ export async function suggestFileName(
   let contextForAI: string;
   let isContentBased = false;
 
-  if (isTextFile(file.mimeType)) {
+  if (canGenerateSummary(file.mimeType, file.name)) {
     let textContent = content;
     if (!textContent) {
       textContent = await extractTextFromFile(env, file);
@@ -271,7 +274,7 @@ async function extractTextFromFile(
   env: Env,
   file: typeof files.$inferSelect
 ): Promise<string> {
-  if (!isTextFile(file.mimeType)) {
+  if (!canGenerateSummary(file.mimeType, file.name)) {
     return '';
   }
 
@@ -326,4 +329,48 @@ function parseImageTags(result: unknown): string[] {
   }
 
   return [...new Set(tags)].slice(0, 5);
+}
+
+export async function autoProcessFile(
+  env: Env,
+  fileId: string
+): Promise<void> {
+  if (!env.AI) {
+    return;
+  }
+
+  const db = getDb(env.DB);
+  const file = await db.select().from(files).where(eq(files.id, fileId)).get();
+
+  if (!file || file.isFolder) {
+    return;
+  }
+
+  const tasks: Promise<void>[] = [];
+
+  if (isImageFile(file.mimeType)) {
+    tasks.push(
+      generateImageTags(env, fileId).then(
+        () => {},
+        (e) => {
+          console.error(`Failed to generate image tags for ${fileId}:`, e);
+        }
+      )
+    );
+  }
+
+  if (canGenerateSummary(file.mimeType, file.name)) {
+    tasks.push(
+      generateFileSummary(env, fileId).then(
+        () => {},
+        (e) => {
+          console.error(`Failed to generate summary for ${fileId}:`, e);
+        }
+      )
+    );
+  }
+
+  if (tasks.length > 0) {
+    await Promise.all(tasks);
+  }
 }

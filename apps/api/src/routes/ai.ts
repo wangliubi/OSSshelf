@@ -11,7 +11,7 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull } from 'drizzle-orm';
 import { getDb, files } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { ERROR_CODES } from '@osshelf/shared';
@@ -365,7 +365,7 @@ async function runBatchIndexTask(
   const batchSize = 10;
 
   try {
-    // 一次性获取所有待索引文件 ID，total 固定为此快照数量，保证进度条准确
+    // 只索引有 AI 摘要的文件（与 autoProcessFile 逻辑一致）
     const allUnindexed = await db
       .select({ id: files.id })
       .from(files)
@@ -374,7 +374,8 @@ async function runBatchIndexTask(
           eq(files.userId, userId),
           isNull(files.deletedAt),
           eq(files.isFolder, false),
-          isNull(files.vectorIndexedAt)
+          isNull(files.vectorIndexedAt),
+          isNotNull(files.aiSummary)
         )
       )
       .all();

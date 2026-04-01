@@ -63,7 +63,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { FileIcon } from '@/components/files/FileIcon';
-import { filesApi, previewApi } from '@/services/api';
+import { filesApi, previewApi, aiApi } from '@/services/api';
 import { getPresignedPreviewUrl } from '@/services/presignUpload';
 import { formatBytes, formatDate, decodeFileName } from '@/utils';
 import { isPreviewable } from '@/utils/fileTypes';
@@ -484,6 +484,7 @@ export function FilePreview({
   const [showNotes, setShowNotes] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [showSmartRename, setShowSmartRename] = useState(false);
+  const [showAIInfo, setShowAIInfo] = useState(true);
   // 从 file 对象读取已缓存的 AI 数据，避免每次打开都要重新生成
   const [aiSummary, setAiSummary] = useState<string | null>(file.aiSummary ?? null);
   const [aiSummaryAt, setAiSummaryAt] = useState<string | null>(file.aiSummaryAt ?? null);
@@ -495,6 +496,43 @@ export function FilePreview({
       return [];
     }
   });
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+
+  const handleGenerateSummary = useCallback(async () => {
+    if (!file.id) return;
+    setIsGeneratingSummary(true);
+    try {
+      const res = await aiApi.summarize(file.id);
+      if (res.data.data?.summary) {
+        setAiSummary(res.data.data.summary);
+        setAiSummaryAt(new Date().toISOString());
+      }
+    } catch (e) {
+      console.error('Failed to generate summary:', e);
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  }, [file.id]);
+
+  const handleGenerateTags = useCallback(async () => {
+    if (!file.id) return;
+    setIsGeneratingTags(true);
+    try {
+      const res = await aiApi.generateTags(file.id);
+      if (res.data.data?.tags) setAiTags(res.data.data.tags);
+      if (res.data.data?.caption) {
+        setAiSummary(res.data.data.caption);
+        setAiSummaryAt(new Date().toISOString());
+      }
+    } catch (e) {
+      console.error('Failed to generate tags:', e);
+    } finally {
+      setIsGeneratingTags(false);
+    }
+  }, [file.id]);
+
+  const canGenerateSummary = isEditableFile(file.mimeType, file.name);
 
   const canPreview = isPreviewable(file.mimeType);
   const isImage = file.mimeType?.startsWith('image/');
@@ -1454,19 +1492,18 @@ export function FilePreview({
                 </div>
                 <div className="space-y-3 max-w-sm mx-auto">
                   <AISummaryCard
-                    fileId={file.id}
                     summary={aiSummary}
                     summaryAt={aiSummaryAt}
-                    onSummaryGenerated={(summary) => {
-                      setAiSummary(summary);
-                      setAiSummaryAt(new Date().toISOString());
-                    }}
+                    onGenerate={handleGenerateSummary}
+                    isGenerating={isGeneratingSummary}
+                    showGenerateButton={canGenerateSummary}
                   />
                   {file.mimeType?.startsWith('image/') && (
                     <ImageTagsDisplay
-                      fileId={file.id}
                       tags={aiTags}
-                      onTagsGenerated={setAiTags}
+                      onGenerate={handleGenerateTags}
+                      isGenerating={isGeneratingTags}
+                      showGenerateButton
                     />
                   )}
                 </div>
@@ -1489,24 +1526,34 @@ export function FilePreview({
                 style={{ transform: `scale(${zoomLevel / 100})` }}
                 onError={() => setLoadError(true)}
               />
-              <div className="absolute bottom-4 left-4 right-4 max-w-md mx-auto">
-                <div className="bg-background/95 backdrop-blur border rounded-lg p-3 space-y-2 shadow-lg">
-                  <AISummaryCard
-                    fileId={file.id}
-                    summary={aiSummary}
-                    summaryAt={aiSummaryAt}
-                    onSummaryGenerated={(summary) => {
-                      setAiSummary(summary);
-                      setAiSummaryAt(new Date().toISOString());
-                    }}
-                  />
-                  <ImageTagsDisplay
-                    fileId={file.id}
-                    tags={aiTags}
-                    onTagsGenerated={setAiTags}
-                  />
+              {(aiSummary || aiTags.length > 0) && (
+                <button
+                  className="absolute bottom-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur border shadow-sm hover:bg-background transition-colors"
+                  onClick={() => setShowAIInfo(!showAIInfo)}
+                  title={showAIInfo ? '隐藏 AI 信息' : '显示 AI 信息'}
+                >
+                  <Sparkles className={cn('h-4 w-4', showAIInfo ? 'text-primary' : 'text-muted-foreground')} />
+                </button>
+              )}
+              {showAIInfo && (aiSummary || aiTags.length > 0) && (
+                <div className="absolute bottom-4 left-4 right-16 max-w-md">
+                  <div className="bg-background/95 backdrop-blur border rounded-lg p-3 space-y-2 shadow-lg">
+                    <AISummaryCard
+                      summary={aiSummary}
+                      summaryAt={aiSummaryAt}
+                      onGenerate={handleGenerateSummary}
+                      isGenerating={isGeneratingSummary}
+                      showGenerateButton={canGenerateSummary}
+                    />
+                    <ImageTagsDisplay
+                      tags={aiTags}
+                      onGenerate={handleGenerateTags}
+                      isGenerating={isGeneratingTags}
+                      showGenerateButton
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : isVideo ? (
             <div className="flex items-center justify-center h-full">

@@ -42,7 +42,7 @@ import { resolveBucketConfig, updateBucketStats, updateUserStorage, checkBucketQ
 import { checkFolderMimeTypeRestriction } from '../lib/folderPolicy';
 import { getUserOrFail, encodeFilename } from '../lib/utils';
 import { computeSha256Hex, checkAndClaimDedup, releaseFileRef } from '../lib/dedup';
-import { indexFileVector, buildFileTextForVector, isAIConfigured } from '../lib/vectorIndex';
+import { autoProcessFile, isAIConfigured } from '../lib/aiFeatures';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('*', authMiddleware);
@@ -247,13 +247,10 @@ app.post('/confirm', async (c) => {
     (async () => {
       try {
         if (await isAIConfigured(c.env)) {
-          const text = await buildFileTextForVector(c.env, fileId);
-          if (text) {
-            await indexFileVector(c.env, fileId, text);
-          }
+          await autoProcessFile(c.env, fileId);
         }
       } catch (error) {
-        console.error('Failed to index file vector:', error);
+        console.error('Failed to auto process file:', error);
       }
     })()
   );
@@ -423,13 +420,10 @@ app.post('/multipart/complete', async (c) => {
     (async () => {
       try {
         if (await isAIConfigured(c.env)) {
-          const text = await buildFileTextForVector(c.env, fileId);
-          if (text) {
-            await indexFileVector(c.env, fileId, text);
-          }
+          await autoProcessFile(c.env, fileId);
         }
       } catch (error) {
-        console.error('Failed to index file vector:', error);
+        console.error('Failed to process file with AI:', error);
       }
     })()
   );

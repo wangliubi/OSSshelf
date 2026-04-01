@@ -40,7 +40,7 @@ import {
 } from '../lib/telegramChunked';
 import { checkAndClaimDedup, releaseFileRef, computeSha256Hex } from '../lib/dedup';
 import { createVersionSnapshot, shouldCreateVersion } from '../lib/versionManager';
-import { indexFileVector, buildFileTextForVector, isAIConfigured } from '../lib/vectorIndex';
+import { autoProcessFile, isAIConfigured } from '../lib/aiFeatures';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -990,13 +990,10 @@ app.post('/create', async (c) => {
     (async () => {
       try {
         if (await isAIConfigured(c.env)) {
-          const text = await buildFileTextForVector(c.env, fileId);
-          if (text) {
-            await indexFileVector(c.env, fileId, text);
-          }
+          await autoProcessFile(c.env, fileId);
         }
       } catch (error) {
-        console.error('Failed to index file vector:', error);
+        console.error('Failed to auto process file:', error);
       }
     })()
   );

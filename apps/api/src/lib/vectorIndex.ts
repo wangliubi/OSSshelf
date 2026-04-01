@@ -2,6 +2,10 @@
  * vectorIndex.ts
  * 向量索引模块
  *
+ * 功能:
+ * - 为文件生成向量嵌入并存储到 Vectorize
+ * - 语义相似文件搜索
+ * - 批量索引管理
  * 模型: @cf/baai/bge-m3（多语言，1024维）
  * 注意: Vectorize 索引需以 --dimensions=1024 --metric=cosine 创建
  */
