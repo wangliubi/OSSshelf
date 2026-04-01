@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import ePub from 'epubjs';
+import ePub, { Book } from 'epubjs';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -14,8 +14,8 @@ interface EpubPreviewProps {
 }
 
 export function EpubPreview({ resolvedUrl, onLoadError }: EpubPreviewProps) {
-  const epubViewerRef = useRef<ePub.Book | null>(null);
-  const epubRenditionRef = useRef<ePub.Rendition | null>(null);
+  const epubViewerRef = useRef<Book | null>(null);
+  const epubRenditionRef = useRef<ReturnType<Book['renderTo']> | null>(null);
   const [epubLoading, setEpubLoading] = useState(false);
   const [epubCurrentPage, setEpubCurrentPage] = useState(0);
   const [epubTotalPages, setEpubTotalPages] = useState(0);
@@ -25,7 +25,13 @@ export function EpubPreview({ resolvedUrl, onLoadError }: EpubPreviewProps) {
   const loadEpubPreview = useCallback(async () => {
     setEpubLoading(true);
     try {
-      const book = ePub(resolvedUrl);
+      const response = await fetch(resolvedUrl);
+      if (!response.ok) {
+        throw new Error(`文件加载失败: ${response.status}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+
+      const book = ePub(arrayBuffer);
       epubViewerRef.current = book;
 
       const rendition = book.renderTo('epub-viewer', {
