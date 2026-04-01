@@ -1534,9 +1534,9 @@ export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit,
                     <AISummaryCard
                       summary={aiSummary}
                       summaryAt={aiSummaryAt}
-                      onGenerate={handleGenerateSummary}
-                      isGenerating={isGeneratingSummary}
-                      showGenerateButton
+                      title="AI 描述"
+                      emptyText="暂无描述，点击下方生成标签"
+                      showGenerateButton={false}
                     />
                     <ImageTagsDisplay
                       tags={aiTags}

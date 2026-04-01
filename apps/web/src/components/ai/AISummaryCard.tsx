@@ -1,6 +1,6 @@
 /**
  * AISummaryCard.tsx
- * AI 摘要卡片组件
+ * AI 摘要/描述卡片组件
  */
 
 import { Sparkles, RefreshCw } from 'lucide-react';
@@ -13,6 +13,8 @@ interface AISummaryCardProps {
   onGenerate?: () => void;
   isGenerating?: boolean;
   showGenerateButton?: boolean;
+  title?: string;
+  emptyText?: string;
 }
 
 export function AISummaryCard({
@@ -21,13 +23,15 @@ export function AISummaryCard({
   onGenerate,
   isGenerating,
   showGenerateButton,
+  title = 'AI 摘要',
+  emptyText = '暂无摘要，点击生成',
 }: AISummaryCardProps) {
   return (
     <div className="border rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">AI 摘要</span>
+          <span className="text-sm font-medium">{title}</span>
         </div>
         {showGenerateButton && (
           <Button variant="ghost" size="sm" onClick={onGenerate} disabled={isGenerating} className="h-7 px-2">
@@ -41,9 +45,9 @@ export function AISummaryCard({
           <p className="text-sm text-muted-foreground">{summary}</p>
           {summaryAt && <p className="text-xs text-muted-foreground">生成于 {formatDate(summaryAt)}</p>}
         </>
-      ) : showGenerateButton ? (
-        <p className="text-sm text-muted-foreground">暂无摘要，点击生成</p>
-      ) : null}
+      ) : (
+        <p className="text-sm text-muted-foreground">{emptyText}</p>
+      )}
     </div>
   );
 }

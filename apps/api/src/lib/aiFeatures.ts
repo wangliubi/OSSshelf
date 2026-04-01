@@ -132,32 +132,26 @@ export async function generateImageTags(env: Env, fileId: string, imageBuffer?: 
   const uint8Array = new Uint8Array(imageData);
 
   try {
-    // 并发调用 llava（中文描述）和 resnet-50（分类标签）
     const [captionResult, tagResult] = await Promise.allSettled([
       (env.AI as any).run(IMAGE_CAPTION_MODEL, {
         image: Array.from(uint8Array),
-        prompt: '用中文简要描述这张图片的主要内容，不超过20个字。',
-        max_tokens: 100,
+        prompt: 'Describe this image in detail. If there is any text in the image, please transcribe it accurately. Respond in the same language as the text in the image, or in Chinese if no text is present.',
+        max_tokens: 300,
       }),
       (env.AI as any).run(IMAGE_TAG_MODEL, {
         image: Array.from(uint8Array),
       }),
     ]);
 
-    // llava 返回字段是 description（不是 response）
     let caption = '';
     if (captionResult.status === 'fulfilled') {
       const r = captionResult.value as { description?: string };
       caption = r.description?.trim() || '';
-    } else {
-      console.warn('llava caption failed:', captionResult.reason);
     }
 
     let tags: string[] = [];
     if (tagResult.status === 'fulfilled') {
       tags = parseImageTags(tagResult.value);
-    } else {
-      console.warn('resnet-50 tagging failed:', tagResult.reason);
     }
 
     const now = new Date().toISOString();
