@@ -1463,7 +1463,7 @@ export function ShareFilePreview({
               {textContent !== null ? (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeHighlight, rehypeKatex]}
+                  rehypePlugins={[[rehypeKatex, { strict: false }], rehypeHighlight]}
                   components={{
                     pre: ({ children, ...props }) => {
                       return (

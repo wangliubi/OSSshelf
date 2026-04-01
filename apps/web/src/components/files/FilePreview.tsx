@@ -1625,7 +1625,7 @@ export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit,
                 {textContent !== null ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[rehypeHighlight, rehypeKatex]}
+                    rehypePlugins={[[rehypeKatex, { strict: false }], rehypeHighlight]}
                     components={{
                       pre: ({ children, ...props }) => {
                         return (

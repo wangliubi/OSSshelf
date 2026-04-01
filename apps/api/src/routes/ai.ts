@@ -149,6 +149,33 @@ app.get('/index/status', async (c) => {
   return c.json({ success: true, data: task });
 });
 
+app.delete('/index/task', async (c) => {
+  const userId = c.get('userId')!;
+  const taskKey = `ai:index:task:${userId}`;
+
+  const existingTask = await c.env.KV.get(taskKey, 'json');
+
+  if (!existingTask) {
+    return c.json({
+      success: true,
+      data: { message: '没有需要取消的任务' },
+    });
+  }
+
+  const task = existingTask as Record<string, unknown>;
+  task.status = 'cancelled';
+  task.completedAt = new Date().toISOString();
+  task.updatedAt = new Date().toISOString();
+  task.error = '用户手动取消';
+
+  await c.env.KV.put(taskKey, JSON.stringify(task), { expirationTtl: 86400 });
+
+  return c.json({
+    success: true,
+    data: { message: '索引任务已取消', task },
+  });
+});
+
 // :fileId 参数路由放在所有具体路径之后
 app.post('/index/:fileId', async (c) => {
   const userId = c.get('userId')!;

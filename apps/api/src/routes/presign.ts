@@ -483,6 +483,11 @@ app.get('/download/:id', async (c) => {
     return c.json({ success: true, data: { useProxy: true, proxyUrl: `/api/files/${fileId}/download` } });
   }
 
+  // Telegram 桶不支持预签名下载，让前端使用代理下载
+  if (bucketConfig.provider === 'telegram') {
+    return c.json({ success: true, data: { useProxy: true, proxyUrl: `/api/files/${fileId}/download` } });
+  }
+
   const downloadUrl = await s3PresignUrl(bucketConfig, 'GET', file.r2Key, DOWNLOAD_EXPIRY);
 
   return c.json({
@@ -522,6 +527,11 @@ app.get('/preview/:id', async (c) => {
 
   const bucketConfig = await resolveBucketConfig(db, userId, encKey, file.bucketId, file.parentId);
   if (!bucketConfig) {
+    return c.json({ success: true, data: { useProxy: true, proxyUrl: `/api/files/${fileId}/preview` } });
+  }
+
+  // Telegram 桶不支持预签名预览，让前端使用代理预览
+  if (bucketConfig.provider === 'telegram') {
     return c.json({ success: true, data: { useProxy: true, proxyUrl: `/api/files/${fileId}/preview` } });
   }
 

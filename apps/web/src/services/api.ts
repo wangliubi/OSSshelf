@@ -1073,7 +1073,7 @@ export interface AIRenameSuggestion {
 
 export interface AIIndexTask {
   id: string;
-  status: 'running' | 'completed' | 'failed' | 'idle';
+  status: 'running' | 'completed' | 'failed' | 'idle' | 'cancelled';
   total: number;
   processed: number;
   failed: number;
@@ -1107,6 +1107,8 @@ export const aiApi = {
   indexAll: () => api.post<ApiResponse<{ message: string; task: AIIndexTask }>>('/api/ai/index/all'),
 
   getIndexStatus: () => api.get<ApiResponse<AIIndexTask>>('/api/ai/index/status'),
+
+  cancelIndexTask: () => api.delete<ApiResponse<{ message: string; task: AIIndexTask }>>('/api/ai/index/task'),
 
   deleteIndex: (fileId: string) => api.delete<ApiResponse<{ message: string }>>(`/api/ai/index/${fileId}`),
 };

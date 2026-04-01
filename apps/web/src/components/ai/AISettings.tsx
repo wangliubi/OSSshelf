@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Sparkles, Database, RefreshCw, AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Sparkles, Database, RefreshCw, AlertTriangle, CheckCircle, XCircle, Loader2, Square } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { aiApi } from '@/services/api';
 import type { AIIndexTask } from '@/services/api';
@@ -61,6 +61,17 @@ export function AISettings() {
     }
   };
 
+  const handleCancelTask = async () => {
+    try {
+      const response = await aiApi.cancelIndexTask();
+      if (response.data.success && response.data.data) {
+        setTask(response.data.data.task);
+      }
+    } catch (e: any) {
+      console.error('Failed to cancel task:', e);
+    }
+  };
+
   const renderTaskStatus = () => {
     if (!task || task.status === 'idle') {
       return <p className="text-sm text-muted-foreground">当前没有正在运行的索引任务</p>;
@@ -70,24 +81,37 @@ export function AISettings() {
 
     return (
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          {task.status === 'running' && (
-            <>
-              <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
-              <span className="text-sm font-medium">正在索引...</span>
-            </>
-          )}
-          {task.status === 'completed' && (
-            <>
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-sm font-medium">索引完成</span>
-            </>
-          )}
-          {task.status === 'failed' && (
-            <>
-              <XCircle className="h-4 w-4 text-red-500" />
-              <span className="text-sm font-medium">索引失败</span>
-            </>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {task.status === 'running' && (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+                <span className="text-sm font-medium">正在索引...</span>
+              </>
+            )}
+            {task.status === 'completed' && (
+              <>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium">索引完成</span>
+              </>
+            )}
+            {task.status === 'failed' && (
+              <>
+                <XCircle className="h-4 w-4 text-red-500" />
+                <span className="text-sm font-medium">索引失败</span>
+              </>
+            )}
+            {task.status === 'cancelled' && (
+              <>
+                <Square className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-medium">已取消</span>
+              </>
+            )}
+          </div>
+          {(task.status === 'running' || task.status === 'cancelled') && (
+            <Button variant="outline" size="sm" onClick={handleCancelTask}>
+              {task.status === 'running' ? '取消任务' : '清除状态'}
+            </Button>
           )}
         </div>
 
