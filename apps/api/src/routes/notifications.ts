@@ -131,9 +131,7 @@ app.delete('/read', async (c) => {
   const userId = c.get('userId')!;
   const db = getDb(c.env.DB);
 
-  await db
-    .delete(notifications)
-    .where(and(eq(notifications.userId, userId), eq(notifications.isRead, true)));
+  await db.delete(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isRead, true)));
 
   return c.json({ success: true, data: { message: '已清除已读通知' } });
 });

@@ -61,7 +61,7 @@ const Permissions: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b">
+      <div className="flex gap-1 border-b overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -69,12 +69,14 @@ const Permissions: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative',
-                activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                'flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0',
+                activeTab === tab.id
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <Icon className="h-4 w-4" />
-              {tab.label}
+              <Icon className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">{tab.label}</span>
               {activeTab === tab.id && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
             </button>
           );

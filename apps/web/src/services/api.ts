@@ -1218,8 +1218,7 @@ export const notificationsApi = {
       { params }
     ),
 
-  getUnreadCount: () =>
-    api.get<ApiResponse<{ count: number }>>('/api/notifications/unread-count'),
+  getUnreadCount: () => api.get<ApiResponse<{ count: number }>>('/api/notifications/unread-count'),
 
   markRead: (id: string) => api.put<ApiResponse<{ message: string }>>(`/api/notifications/${id}/read`),
 

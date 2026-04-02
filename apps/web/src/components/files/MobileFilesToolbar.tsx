@@ -22,10 +22,11 @@ import {
   FolderPlus,
   FilePlus,
   X,
-  SlidersHorizontal,
   Search,
+  SlidersHorizontal,
   Tag,
   Sparkles,
+  FolderInput,
 } from 'lucide-react';
 import { cn } from '@/utils';
 import type { ViewMode, SortField } from '@/stores/files';
@@ -43,6 +44,7 @@ interface MobileFilesToolbarProps {
   onNewFile: () => void;
   onNewFolder: () => void;
   onUpload: () => void;
+  onUploadFolder?: () => void;
 }
 
 const viewModes: { mode: ViewMode; icon: typeof List; label: string }[] = [
@@ -63,6 +65,7 @@ export function MobileFilesToolbar({
   onNewFile,
   onNewFolder,
   onUpload,
+  onUploadFolder,
 }: MobileFilesToolbarProps) {
   const [showFabMenu, setShowFabMenu] = useState(false);
 
@@ -100,6 +103,14 @@ export function MobileFilesToolbar({
           )}
         </div>
 
+        <button
+          className="flex items-center justify-center w-12 h-10 rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
+          onClick={() => setShowFabMenu(!showFabMenu)}
+          title="新建/上传"
+        >
+          {showFabMenu ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+        </button>
+
         <div className="flex items-center gap-1">
           <button
             className={cn(
@@ -126,14 +137,10 @@ export function MobileFilesToolbar({
         </div>
       </div>
 
-      <button className="mobile-fab lg:hidden" onClick={() => setShowFabMenu(!showFabMenu)} title="新建/上传">
-        {showFabMenu ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
-      </button>
-
       {showFabMenu && (
         <>
           <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setShowFabMenu(false)} />
-          <div className="fixed bottom-36 right-4 z-30 flex flex-col gap-2 lg:hidden animate-scale-in">
+          <div className="fixed bottom-36 left-1/2 -translate-x-1/2 z-30 flex flex-col gap-2 lg:hidden animate-scale-in">
             <button
               className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform"
               onClick={() => {
@@ -154,6 +161,18 @@ export function MobileFilesToolbar({
               <FolderPlus className="h-4 w-4" />
               新建文件夹
             </button>
+            {onUploadFolder && (
+              <button
+                className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform"
+                onClick={() => {
+                  setShowFabMenu(false);
+                  onUploadFolder();
+                }}
+              >
+                <FolderInput className="h-4 w-4" />
+                上传文件夹
+              </button>
+            )}
             <button
               className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-full shadow-lg text-sm active:scale-95 transition-transform"
               onClick={() => {

@@ -84,9 +84,7 @@ export function StarButton({
       disabled={loading}
       className={cn(
         'p-1 rounded transition-colors',
-        isStarred
-          ? 'text-yellow-500 hover:text-yellow-600'
-          : 'text-gray-400 hover:text-yellow-500',
+        isStarred ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-yellow-500',
         loading && 'opacity-50 cursor-not-allowed',
         className
       )}

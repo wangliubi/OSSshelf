@@ -11,10 +11,7 @@ interface ActivityHeatmapChartProps {
 }
 
 export function ActivityHeatmapChart({ data }: ActivityHeatmapChartProps) {
-  const maxActivity = Math.max(
-    ...data.heatmap.map((d) => d.uploads + d.downloads + d.deletes),
-    1
-  );
+  const maxActivity = Math.max(...data.heatmap.map((d) => d.uploads + d.downloads + d.deletes), 1);
 
   const getIntensity = (value: number) => {
     const ratio = value / maxActivity;
@@ -34,21 +31,15 @@ export function ActivityHeatmapChart({ data }: ActivityHeatmapChartProps) {
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {data.summary.totalUploads}
-          </div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.summary.totalUploads}</div>
           <div className="text-sm text-gray-500">上传</div>
         </div>
         <div className="text-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {data.summary.totalDownloads}
-          </div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{data.summary.totalDownloads}</div>
           <div className="text-sm text-gray-500">下载</div>
         </div>
         <div className="text-center p-3 bg-red-50 dark:bg-red-900/30 rounded-lg">
-          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {data.summary.totalDeletes}
-          </div>
+          <div className="text-2xl font-bold text-red-600 dark:text-red-400">{data.summary.totalDeletes}</div>
           <div className="text-sm text-gray-500">删除</div>
         </div>
       </div>
@@ -104,15 +95,9 @@ export function ActivityHeatmapChart({ data }: ActivityHeatmapChartProps) {
                   {new Date(day.date).toLocaleDateString('zh-CN')}
                 </span>
                 <div className="flex gap-3 text-xs">
-                  {day.uploads > 0 && (
-                    <span className="text-blue-500">↑ {day.uploads}</span>
-                  )}
-                  {day.downloads > 0 && (
-                    <span className="text-green-500">↓ {day.downloads}</span>
-                  )}
-                  {day.deletes > 0 && (
-                    <span className="text-red-500">× {day.deletes}</span>
-                  )}
+                  {day.uploads > 0 && <span className="text-blue-500">↑ {day.uploads}</span>}
+                  {day.downloads > 0 && <span className="text-green-500">↓ {day.downloads}</span>}
+                  {day.deletes > 0 && <span className="text-red-500">× {day.deletes}</span>}
                 </div>
               </div>
             ))}

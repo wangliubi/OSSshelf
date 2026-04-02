@@ -33,15 +33,15 @@ export function LargeFilesList({ files, onFileClick, onDelete }: LargeFilesListP
 
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {files.map((file, index) => {
-          const provider = file.bucket?.provider ? PROVIDER_META[file.bucket.provider as keyof typeof PROVIDER_META] : null;
+          const provider = file.bucket?.provider
+            ? PROVIDER_META[file.bucket.provider as keyof typeof PROVIDER_META]
+            : null;
           return (
             <div
               key={file.id}
               className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
-              <div className="flex-shrink-0 w-8 text-center text-gray-400 font-medium">
-                #{index + 1}
-              </div>
+              <div className="flex-shrink-0 w-8 text-center text-gray-400 font-medium">#{index + 1}</div>
 
               <div className="flex-shrink-0">
                 <File className="h-8 w-8 text-gray-400" />
@@ -58,9 +58,7 @@ export function LargeFilesList({ files, onFileClick, onDelete }: LargeFilesListP
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                  <span className="font-semibold text-gray-700 dark:text-gray-300">
-                    {formatBytes(file.size)}
-                  </span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">{formatBytes(file.size)}</span>
                   <span>•</span>
                   <span>{file.mimeType || '未知类型'}</span>
                   {file.bucket && (

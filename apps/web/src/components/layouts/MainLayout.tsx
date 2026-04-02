@@ -333,7 +333,7 @@ export default function MainLayout() {
         className={cn(
           'transition-all duration-200',
           isCollapsed ? 'lg:pl-16' : 'lg:pl-64',
-          'pt-16 lg:pt-0 pb-20 lg:pb-0'
+          'pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-[calc(100vh-4rem)]'
         )}
       >
         <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">

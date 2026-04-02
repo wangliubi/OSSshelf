@@ -62,12 +62,7 @@ import { CsvPreview } from './filepreview/CsvPreview';
 import { ZipPreview } from './filepreview/ZipPreview';
 import { FontPreview } from './filepreview/FontPreview';
 import { EpubPreview } from './filepreview/EpubPreview';
-import {
-  WINDOW_SIZE_CONFIG,
-  WindowSize,
-  getLanguageFromExtension,
-  isCodeFile,
-} from './filepreview/previewUtils';
+import { WINDOW_SIZE_CONFIG, WindowSize, getLanguageFromExtension, isCodeFile } from './filepreview/previewUtils';
 
 interface PreviewInfo {
   id: string;
@@ -221,6 +216,26 @@ export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit,
           setResolvedUrl(`${filesApi.previewUrl(file.id)}?token=${encodeURIComponent(token)}`);
         }
       });
+
+    filesApi
+      .get(file.id)
+      .then((res) => {
+        if (!cancelled && res.data.data) {
+          const fileData = res.data.data;
+          if (fileData.aiSummary) {
+            setAiSummary(fileData.aiSummary);
+            setAiSummaryAt(fileData.aiSummaryAt ?? null);
+          }
+          if (fileData.aiTags) {
+            try {
+              setAiTags(JSON.parse(fileData.aiTags));
+            } catch {
+              setAiTags([]);
+            }
+          }
+        }
+      })
+      .catch(() => {});
 
     return () => {
       cancelled = true;
@@ -517,6 +532,24 @@ export function FilePreview({ file, token, onClose, onDownload, onShare, onEdit,
                   </div>
                 )}
               </div>
+              <button
+                className="absolute bottom-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur border shadow-sm hover:bg-background transition-colors"
+                onClick={() => setShowAIInfo(!showAIInfo)}
+                title={showAIInfo ? '隐藏 AI 信息' : '显示 AI 信息'}
+              >
+                <Sparkles className={cn('h-4 w-4', showAIInfo ? 'text-primary' : 'text-muted-foreground')} />
+              </button>
+              {showAIInfo && (
+                <div className="absolute bottom-4 right-16 w-80">
+                  <AISummaryCard
+                    summary={aiSummary}
+                    summaryAt={aiSummaryAt}
+                    onGenerate={handleGenerateSummary}
+                    isGenerating={isGeneratingSummary}
+                    showGenerateButton={canGenerateSummary}
+                  />
+                </div>
+              )}
             </div>
           ) : isOffice ? (
             <OfficePreview

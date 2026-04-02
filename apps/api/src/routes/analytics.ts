@@ -225,11 +225,7 @@ app.get('/bucket-stats', async (c) => {
   const userId = c.get('userId')!;
   const db = getDb(c.env.DB);
 
-  const buckets = await db
-    .select()
-    .from(storageBuckets)
-    .where(eq(storageBuckets.userId, userId))
-    .all();
+  const buckets = await db.select().from(storageBuckets).where(eq(storageBuckets.userId, userId)).all();
 
   const stats = await Promise.all(
     buckets.map(async (bucket) => {

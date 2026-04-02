@@ -221,7 +221,10 @@ export default function Files() {
     refetch,
   } = useQuery<FileItem[]>({
     queryKey: ['files', folderId, showStarred],
-    queryFn: () => filesApi.list({ parentId: folderId || null, starred: showStarred ? 'true' : undefined }).then((r) => r.data.data ?? []),
+    queryFn: () =>
+      filesApi
+        .list({ parentId: folderId || null, starred: showStarred ? 'true' : undefined })
+        .then((r) => r.data.data ?? []),
   });
 
   const fileIds = files.map((f) => f.id);
@@ -595,9 +598,11 @@ export default function Files() {
       )}
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="space-y-1">
+        <div>
           <h1 className="text-xl lg:text-2xl font-bold">文件管理</h1>
-          <BreadcrumbNav items={breadcrumbs} />
+          <div className="flex items-center gap-2 mt-0.5">
+            <BreadcrumbNav items={breadcrumbs} />
+          </div>
         </div>
 
         <MobileSearchPanel
@@ -702,6 +707,7 @@ export default function Files() {
           onNewFile={() => setShowNewFileDialog(true)}
           onNewFolder={() => setShowNewFolderDialog(true)}
           onUpload={() => fileInputRef.current?.click()}
+          onUploadFolder={() => folderInputRef.current?.click()}
         />
 
         <div className="hidden md:flex items-center gap-2 flex-wrap">
@@ -1134,7 +1140,6 @@ export default function Files() {
         loading={createFolderMutation.isPending}
       />
 
-
       {showNewFileDialog && (
         <NewFileDialog
           isRoot={!folderId}
@@ -1238,7 +1243,6 @@ export default function Files() {
         }
         onCancel={() => setRenameFile(null)}
       />
-
 
       {moveFile && (
         <MoveFolderPicker

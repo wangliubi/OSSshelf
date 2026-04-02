@@ -134,7 +134,7 @@ app.get('/', async (c) => {
     }
   }
 
-  let semanticResults: Map<string, number> = new Map();
+  const semanticResults: Map<string, number> = new Map();
   const useSemantic =
     (searchParams.semantic || searchParams.hybrid) && searchParams.query && (await isAIConfigured(c.env));
 

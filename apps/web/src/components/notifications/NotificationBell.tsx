@@ -40,10 +40,7 @@ export function NotificationBell({ onClick, className }: NotificationBellProps) 
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors',
-        className
-      )}
+      className={cn('relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors', className)}
       title="通知"
     >
       {unreadCount > 0 ? (

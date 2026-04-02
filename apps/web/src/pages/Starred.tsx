@@ -18,10 +18,13 @@ export default function Starred() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: files = [], isLoading, refetch } = useQuery<FileItem[]>({
+  const {
+    data: files = [],
+    isLoading,
+    refetch,
+  } = useQuery<FileItem[]>({
     queryKey: ['files', 'starred'],
-    queryFn: () =>
-      filesApi.list({ starred: 'true' }).then((r) => r.data.data ?? []),
+    queryFn: () => filesApi.list({ starred: 'true' }).then((r) => r.data.data ?? []),
     staleTime: 30000,
   });
 
@@ -48,9 +51,7 @@ export default function Starred() {
           <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
           收藏
         </h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          {isLoading ? '加载中…' : `${files.length} 个收藏文件`}
-        </p>
+        <p className="text-muted-foreground text-sm mt-0.5">{isLoading ? '加载中…' : `${files.length} 个收藏文件`}</p>
       </div>
 
       {/* Content */}

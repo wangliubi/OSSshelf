@@ -67,9 +67,7 @@ export function NotificationList({ onClose, onNotificationClick, className }: No
   const handleMarkRead = async (id: string) => {
     try {
       // await notificationsApi.markRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-      );
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
     } catch (error) {
       console.error('Failed to mark as read:', error);
     }
@@ -169,26 +167,18 @@ export function NotificationList({ onClose, onNotificationClick, className }: No
               onClick={() => onNotificationClick?.(notification)}
             >
               <div className="flex items-start gap-3">
-                <span className="text-xl flex-shrink-0">
-                  {TYPE_ICONS[notification.type] || '🔔'}
-                </span>
+                <span className="text-xl flex-shrink-0">{TYPE_ICONS[notification.type] || '🔔'}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={cn('font-medium', !notification.isRead && 'text-blue-600')}>
                       {notification.title}
                     </span>
-                    {!notification.isRead && (
-                      <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
-                    )}
+                    {!notification.isRead && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />}
                   </div>
                   {notification.body && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
-                      {notification.body}
-                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.body}</p>
                   )}
-                  <span className="text-xs text-gray-400 mt-1 block">
-                    {formatTime(notification.createdAt)}
-                  </span>
+                  <span className="text-xs text-gray-400 mt-1 block">{formatTime(notification.createdAt)}</span>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   {!notification.isRead && (
