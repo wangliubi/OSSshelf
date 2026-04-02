@@ -15,9 +15,10 @@ import { cn } from '../../utils';
 
 interface NotificationBellProps {
   className?: string;
+  align?: 'left' | 'right' | 'center';
 }
 
-export function NotificationBell({ className }: NotificationBellProps) {
+export function NotificationBell({ className, align = 'right' }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -81,6 +82,12 @@ export function NotificationBell({ className }: NotificationBellProps) {
     fetchUnreadCount();
   };
 
+  const alignClass = {
+    left: 'left-0',
+    right: 'right-0',
+    center: 'left-1/2 -translate-x-1/2',
+  }[align];
+
   return (
     <div className="relative">
       <button
@@ -107,7 +114,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 animate-in fade-in-0 zoom-in-95"
+          className={cn(
+            'absolute top-full mt-2 w-80 sm:w-96 z-50 animate-in fade-in-0 zoom-in-95',
+            alignClass
+          )}
         >
           <NotificationList
             onClose={() => setIsOpen(false)}

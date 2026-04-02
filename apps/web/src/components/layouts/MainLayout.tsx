@@ -273,6 +273,13 @@ export default function MainLayout() {
                 <p className="text-xs font-medium truncate leading-none">{user?.name || user?.email}</p>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">{user?.email}</p>
               </div>
+              <NotificationBell align="left" className="flex-shrink-0" />
+            </div>
+          )}
+
+          {isCollapsed && !isHovering && (
+            <div className="flex justify-center">
+              <NotificationBell align="left" />
             </div>
           )}
 
