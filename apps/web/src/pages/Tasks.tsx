@@ -356,65 +356,55 @@ export default function Tasks() {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap justify-end">
-        {isMobile && (
-          <>
-            {pendingOrUploadingTasks.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()}>
-                <PauseCircle className="h-4 w-4 mr-1.5" />
-                一键暂停 ({pendingOrUploadingTasks.length})
-              </Button>
-            )}
-            {pausedTasks.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => deleteAllPausedMutation.mutate()}
-                className="text-red-500 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                删除暂停中 ({pausedTasks.length})
-              </Button>
-            )}
-          </>
-        )}
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {completedTasks.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => clearCompletedMutation.mutate()}>
-              <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              {!isMobile && '清空已完成'}
-            </Button>
-          )}
-          {failedTasks.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => clearFailedMutation.mutate()}>
-              <XCircle className="h-4 w-4 mr-1.5" />
-              {!isMobile && '清空失败'}
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-1.5" />
-            {!isMobile && '刷新'}
+        {isMobile && pendingOrUploadingTasks.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()}>
+            <PauseCircle className="h-4 w-4 mr-1.5" />
+            一键暂停 ({pendingOrUploadingTasks.length})
           </Button>
-        </div>
-        {!isMobile && (
-          <>
-            {pendingOrUploadingTasks.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()}>
-                <PauseCircle className="h-4 w-4 mr-1.5" />
-                一键暂停 ({pendingOrUploadingTasks.length})
-              </Button>
-            )}
-            {pausedTasks.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => deleteAllPausedMutation.mutate()}
-                className="text-red-500 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                删除暂停中 ({pausedTasks.length})
-              </Button>
-            )}
-          </>
+        )}
+        {isMobile && pausedTasks.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => deleteAllPausedMutation.mutate()}
+            className="text-red-500 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4 mr-1.5" />
+            删除暂停中 ({pausedTasks.length})
+          </Button>
+        )}
+        {completedTasks.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => clearCompletedMutation.mutate()}>
+            <CheckCircle2 className="h-4 w-4 mr-1.5" />
+            {!isMobile && '清空已完成'}
+          </Button>
+        )}
+        {failedTasks.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => clearFailedMutation.mutate()}>
+            <XCircle className="h-4 w-4 mr-1.5" />
+            {!isMobile && '清空失败'}
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-1.5" />
+          {!isMobile && '刷新'}
+        </Button>
+        {!isMobile && pendingOrUploadingTasks.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()}>
+            <PauseCircle className="h-4 w-4 mr-1.5" />
+            一键暂停 ({pendingOrUploadingTasks.length})
+          </Button>
+        )}
+        {!isMobile && pausedTasks.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => deleteAllPausedMutation.mutate()}
+            className="text-red-500 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4 mr-1.5" />
+            删除暂停中 ({pausedTasks.length})
+          </Button>
         )}
       </div>
 
