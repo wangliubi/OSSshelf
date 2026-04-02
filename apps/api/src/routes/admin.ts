@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { hashPassword } from '../lib/crypto';
 import { createAuditLog, getClientIp, getUserAgent } from '../lib/audit';
 import { getRegConfig, type RegConfig } from '../lib/utils';
+import { createNotification } from '../lib/notificationUtils';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -232,6 +233,32 @@ app.put('/registration', async (c) => {
     userAgent: getUserAgent(c),
   });
 
+  (async () => {
+    try {
+      const adminId = c.get('userId')!;
+
+      if (current.open !== updated.open) {
+        await createNotification(c.env, {
+          userId: adminId,
+          type: updated.open ? 'registration_opened' : 'registration_closed',
+          title: updated.open ? '注册已开放' : '注册已关闭',
+          body: updated.open ? '系统已开放新用户注册' : '系统已关闭新用户注册',
+          data: { changedBy: adminId },
+        });
+      }
+
+      if (current.requireInviteCode !== updated.requireInviteCode) {
+        await createNotification(c.env, {
+          userId: adminId,
+          type: updated.requireInviteCode ? 'invite_registration_opened' : 'invite_registration_closed',
+          title: updated.requireInviteCode ? '邀请码注册已开放' : '邀请码注册已关闭',
+          body: updated.requireInviteCode ? '系统已开放邀请码注册' : '系统已关闭邀请码注册',
+          data: { changedBy: adminId },
+        });
+      }
+    } catch {}
+  })();
+
   return c.json({ success: true, data: updated });
 });
 
@@ -261,6 +288,18 @@ app.post('/registration/codes', async (c) => {
     ipAddress: getClientIp(c),
     userAgent: getUserAgent(c),
   });
+
+  (async () => {
+    try {
+      await createNotification(c.env, {
+        userId: c.get('userId')!,
+        type: 'invite_code_created',
+        title: '邀请码已生成',
+        body: `已生成 ${count} 个邀请码`,
+        data: { count, codes },
+      });
+    } catch {}
+  })();
 
   return c.json({ success: true, data: { codes, createdAt: now } });
 });

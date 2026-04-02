@@ -766,36 +766,43 @@ Week 8:
      - previewUtils 工具函数
 ```
 
-### Phase 4：体验完善（计划中）
+### Phase 4：体验完善（已完成 ✅）
 
 **版本：3.8.0**
 
-**详细计划见**：`.trae/documents/OSSShelf_v4_Phase4_Execution_Plan.md`
-
 ```
 Week 9:
-  📋 收藏夹功能：
+  ✅ 收藏夹功能：
      - files.is_starred 字段已存在，无需迁移
-     - GET /api/files?starred=true
-     - POST/DELETE /api/files/:id/star
-     - 前端 StarButton + StarredFiles + 侧边栏入口
-  📋 存储分析 Dashboard：
-     - GET /api/analytics/storage-breakdown（按类型分布）
+     - GET /api/files?starred=true 筛选收藏文件
+     - POST /api/files/:id/star 添加收藏
+     - DELETE /api/files/:id/star 取消收藏
+     - 前端 Starred.tsx 页面 + StarredFiles.tsx 组件 + 侧边栏入口
+  ✅ 存储分析 Dashboard：
+     - GET /api/analytics/storage-breakdown（按类型分布统计）
      - GET /api/analytics/activity-heatmap（活跃度热力图）
      - GET /api/analytics/large-files（大文件 Top 20）
-     - 前端 StorageDashboard + 图表组件
+     - GET /api/analytics/storage-trend（存储趋势）
+     - GET /api/analytics/bucket-stats（存储桶统计）
+     - 前端 Analytics.tsx 页面 + StorageDashboard.tsx + 图表组件
 
 Week 10:
-  📋 通知系统：
+  ✅ 通知系统：
      - 数据库迁移：0015_notifications.sql
-     - notifications 表（share_received | mention | permission_granted | ai_complete）
-     - 前端 NotificationBell + NotificationList
-  📋 FTS5 全文搜索升级：
+     - notifications 表（share_received | mention | permission_granted | ai_complete | system）
+     - 后端 API：GET /api/notifications, PUT /api/notifications/:id/read, DELETE /api/notifications/:id
+     - 前端 NotificationBell（铃铛按钮）+ NotificationList（通知列表弹窗）
+     - PC端：侧边栏底部显示，向上展开弹窗
+     - 移动端：顶部栏右侧显示，向下展开弹窗
+     - 注意：通知触发逻辑需在业务代码中调用 createNotification 函数
+  ✅ FTS5 全文搜索升级：
      - 数据库迁移：0016_fts5.sql
      - files_fts 虚拟表 + 同步触发器
      - 支持 unicode61 中文分词
+     - 后端：通过 fts=true 参数启用 FTS5 搜索
+     - 前端：搜索栏 FTS5 开关按钮（桌面端 + 移动端）
 
-Week 11（可选）:
+Week 11（可选 - 未实现）:
   📋 2FA 双因素认证：
      - 数据库迁移：0017_2fa.sql
      - TOTP 生成与验证
@@ -816,8 +823,8 @@ Week 11（可选）:
 | 0012 | `permission_v2.sql` | user_groups, group_members, file_permissions 扩展字段 | ✅ 已完成 |
 | 0013 | `fix_user_id_nullable.sql` | 修复 user_id 可空问题 | ✅ 已完成 |
 | 0014 | `ai_features.sql`   | files.ai_summary, files.ai_tags, files.vector_indexed_at, files.is_starred | ✅ 已完成 |
-| 0015 | `notifications.sql` | notifications table                                   | 📋 计划中 |
-| 0016 | `fts5.sql`          | files_fts virtual table + sync triggers               | 📋 计划中 |
+| 0015 | `notifications.sql` | notifications table                                   | ✅ 已完成 |
+| 0016 | `fts5.sql`          | files_fts virtual table + sync triggers               | ✅ 已完成 |
 | 0017 | `2fa.sql`           | users.totp_secret, users.totp_enabled                 | 📋 计划中 |
 | 0018 | `folder_snapshots.sql` | folder_snapshots table                             | 📋 计划中 |
 
@@ -840,8 +847,8 @@ apps/api/src/
 │   ├── apiKeys.ts            ← ✅ 已实现
 │   ├── webhooks.ts           ← ✅ 已实现
 │   ├── ai.ts                 ← ✅ 已实现: AI 功能 API
-│   ├── analytics.ts          ← 📋 计划中: 存储分析 API
-│   ├── notifications.ts      ← 📋 计划中: 通知 API
+│   ├── analytics.ts          ← ✅ 已实现: 存储分析 API
+│   ├── notifications.ts      ← ✅ 已实现: 通知 API
 │   ├── snapshots.ts          ← 📋 计划中: 文件夹快照 API
 │   └── v1/                   ← ✅ 已实现: 开放 API v1
 │       ├── files.ts
@@ -893,12 +900,12 @@ apps/web/src/components/
 │   ├── FontPreview.tsx
 │   ├── EpubPreview.tsx
 │   └── previewUtils.ts
-├── analytics/                ← 📋 计划中
+├── analytics/                ← ✅ 已实现
 │   ├── StorageDashboard.tsx
-│   ├── StorageBreakdown.tsx
+│   ├── StorageBreakdownChart.tsx
 │   ├── ActivityHeatmap.tsx
 │   └── LargeFilesList.tsx
-└── notifications/            ← 📋 计划中
+└── notifications/            ← ✅ 已实现
     ├── NotificationBell.tsx
     ├── NotificationList.tsx
     └── NotificationItem.tsx
@@ -906,10 +913,8 @@ apps/web/src/components/
 
 ---
 
-> **当前版本：v3.7.0**
+> **当前版本：v3.8.0**
 >
-> **已完成**：Phase 1-3（版本控制修复 + 备忘录基础 + API Key + 文件编辑 + 权限系统 v2 + RESTful v1 API + OpenAPI 文档 + Webhook + AI 智能化 + 移动端优化 + 预览组件拆分）
+> **已完成**：Phase 1-4（版本控制修复 + 备忘录基础 + API Key + 文件编辑 + 权限系统 v2 + RESTful v1 API + OpenAPI 文档 + Webhook + AI 智能化 + 移动端优化 + 预览组件拆分 + 收藏夹 + 存储分析 Dashboard + 通知系统 + FTS5 全文搜索）
 >
-> **下一步**：Phase 4（收藏夹 + 存储分析 Dashboard + 通知系统 + FTS5 搜索 + 2FA + 文件夹快照）
->
-> **详细计划**：`.trae/documents/OSSShelf_v4_Phase4_Execution_Plan.md`
+> **下一步**：Phase 5（2FA 双因素认证 + 文件夹快照）

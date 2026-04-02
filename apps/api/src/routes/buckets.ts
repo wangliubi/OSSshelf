@@ -18,6 +18,7 @@ import { throwAppError } from '../middleware/error';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 import { getEncryptionKey } from '../lib/crypto';
+import { createNotification } from '../lib/notificationUtils';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('*', authMiddleware);
@@ -174,6 +175,22 @@ app.post('/', async (c) => {
 
   await db.insert(storageBuckets).values(newBucket);
 
+  (async () => {
+    try {
+      await createNotification(c.env, {
+        userId,
+        type: 'bucket_created',
+        title: '存储桶创建成功',
+        body: `存储桶「${data.name}」（${PROVIDERS[data.provider as keyof typeof PROVIDERS]?.name || data.provider}）已创建`,
+        data: {
+          bucketId: id,
+          bucketName: data.name,
+          provider: data.provider,
+        },
+      });
+    } catch {}
+  })();
+
   return c.json(
     {
       success: true,
@@ -258,6 +275,22 @@ app.put('/:id', async (c) => {
   await db.update(storageBuckets).set(updateData).where(eq(storageBuckets.id, id));
 
   const updated = await db.select().from(storageBuckets).where(eq(storageBuckets.id, id)).get();
+
+  (async () => {
+    try {
+      await createNotification(c.env, {
+        userId,
+        type: 'bucket_updated',
+        title: '存储桶已更新',
+        body: `存储桶「${updated?.name || bucket.name}」配置已更新`,
+        data: {
+          bucketId: id,
+          bucketName: updated?.name || bucket.name,
+        },
+      });
+    } catch {}
+  })();
+
   return c.json({ success: true, data: updated ? sanitize(updated) : null });
 });
 
@@ -417,6 +450,22 @@ app.delete('/:id', async (c) => {
   }
 
   await db.delete(storageBuckets).where(eq(storageBuckets.id, id));
+
+  (async () => {
+    try {
+      await createNotification(c.env, {
+        userId,
+        type: 'bucket_deleted',
+        title: '存储桶已删除',
+        body: `存储桶「${bucket.name}」已删除`,
+        data: {
+          bucketId: id,
+          bucketName: bucket.name,
+          provider: bucket.provider,
+        },
+      });
+    } catch {}
+  })();
 
   return c.json({ success: true, data: { message: '已删除存储桶配置' } });
 });

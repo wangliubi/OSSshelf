@@ -16,9 +16,10 @@ import { cn } from '../../utils';
 interface NotificationBellProps {
   className?: string;
   align?: 'left' | 'right' | 'center';
+  direction?: 'up' | 'down';
 }
 
-export function NotificationBell({ className, align = 'right' }: NotificationBellProps) {
+export function NotificationBell({ className, align = 'right', direction = 'down' }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -88,6 +89,8 @@ export function NotificationBell({ className, align = 'right' }: NotificationBel
     center: 'left-1/2 -translate-x-1/2',
   }[align];
 
+  const directionClass = direction === 'up' ? 'bottom-full mb-2' : 'top-full mt-2';
+
   return (
     <div className="relative">
       <button
@@ -115,8 +118,9 @@ export function NotificationBell({ className, align = 'right' }: NotificationBel
         <div
           ref={popoverRef}
           className={cn(
-            'absolute top-full mt-2 w-80 sm:w-96 z-50 animate-in fade-in-0 zoom-in-95',
-            alignClass
+            'absolute w-80 sm:w-96 z-50 animate-in fade-in-0 zoom-in-95',
+            alignClass,
+            directionClass
           )}
         >
           <NotificationList
