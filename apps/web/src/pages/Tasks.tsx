@@ -120,7 +120,11 @@ export default function Tasks() {
 
   const historyTaskGroups = useMemo(() => groupTasksByDate(historyTasks), [historyTasks]);
 
+  const isInitialized = useRef(false);
+
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
     const defaultExpanded = new Set<string>();
     historyTaskGroups.forEach((g: TaskGroup) => {
       if (g.defaultExpanded) {

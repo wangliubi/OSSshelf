@@ -38,7 +38,7 @@ import { encodeFilename } from '../lib/utils';
 import { throwAppError } from '../middleware/error';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
-import { createNotification, getUserInfo } from '../lib/notificationUtils';
+import { createNotification, sendNotification, getUserInfo } from '../lib/notificationUtils';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -672,23 +672,26 @@ app.get('/:id/download', async (c) => {
   try {
     const buf = await fetchFileContent(c.env, db, encKey, file);
 
-    (async () => {
-      try {
-        const ownerInfo = await getUserInfo(c.env, share.userId);
-        await createNotification(c.env, {
-          userId: share.userId,
-          type: 'share_received',
-          title: '您的分享文件被下载',
-          body: `文件「${file.name}」已被下载（第 ${share.downloadCount + 1} 次）`,
-          data: {
-            shareId,
-            fileId: file.id,
-            fileName: file.name,
-            downloadCount: share.downloadCount + 1,
-          },
-        });
-      } catch {}
-    })();
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          await createNotification(c.env, {
+            userId: share.userId,
+            type: 'share_received',
+            title: '您的分享文件被下载',
+            body: `文件「${file.name}」已被下载（第 ${share.downloadCount + 1} 次）`,
+            data: {
+              shareId,
+              fileId: file.id,
+              fileName: file.name,
+              downloadCount: share.downloadCount + 1,
+            },
+          });
+        } catch (e) {
+          console.error('Failed to send notification:', e);
+        }
+      })()
+    );
 
     return new Response(buf, {
       headers: {
@@ -1292,24 +1295,28 @@ app.post('/upload/:token', async (c) => {
     .set({ uploadCount: share.uploadCount + 1 })
     .where(eq(shares.id, share.id));
 
-  (async () => {
-    try {
-      await createNotification(c.env, {
-        userId: share.userId,
-        type: 'upload_link_received',
-        title: '您的上传链接收到新文件',
-        body: `文件「${uploadFile.name}」已通过上传链接上传到文件夹「${folder.name}」`,
-        data: {
-          shareId: share.id,
-          fileId,
-          fileName: uploadFile.name,
-          folderId: share.fileId,
-          folderName: folder.name,
-          uploadCount: share.uploadCount + 1,
-        },
-      });
-    } catch {}
-  })();
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        await createNotification(c.env, {
+          userId: share.userId,
+          type: 'upload_link_received',
+          title: '您的上传链接收到新文件',
+          body: `文件「${uploadFile.name}」已通过上传链接上传到文件夹「${folder.name}」`,
+          data: {
+            shareId: share.id,
+            fileId,
+            fileName: uploadFile.name,
+            folderId: share.fileId,
+            folderName: folder.name,
+            uploadCount: share.uploadCount + 1,
+          },
+        });
+      } catch (e) {
+        console.error('Failed to send notification:', e);
+      }
+    })()
+  );
 
   return c.json({
     success: true,

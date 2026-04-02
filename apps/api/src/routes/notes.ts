@@ -197,24 +197,34 @@ app.post('/:fileId', async (c) => {
         isRead: false,
         createdAt: now,
       });
-
-      if (u.id !== userId) {
-        const authorInfo = await getUserInfo(c.env, userId);
-        await createNotification(c.env, {
-          userId: u.id,
-          type: 'mention',
-          title: '您在笔记中被提及',
-          body: `${authorInfo?.name || authorInfo?.email || '用户'} 在文件「${file.name}」的笔记中@了您`,
-          data: {
-            fileId,
-            fileName: file.name,
-            noteId,
-            mentionerId: userId,
-            mentionerName: authorInfo?.name || authorInfo?.email,
-          },
-        });
-      }
     }
+
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          const authorInfo = await getUserInfo(c.env, userId);
+          for (const u of mentionedUsers) {
+            if (u.id !== userId) {
+              await createNotification(c.env, {
+                userId: u.id,
+                type: 'mention',
+                title: '您在笔记中被提及',
+                body: `${authorInfo?.name || authorInfo?.email || '用户'} 在文件「${file.name}」的笔记中@了您`,
+                data: {
+                  fileId,
+                  fileName: file.name,
+                  noteId,
+                  mentionerId: userId,
+                  mentionerName: authorInfo?.name || authorInfo?.email,
+                },
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Failed to send mention notification:', e);
+        }
+      })()
+    );
   }
 
   if (parentId) {
@@ -225,21 +235,29 @@ app.post('/:fileId', async (c) => {
       .get();
 
     if (parentNote && parentNote.userId !== userId) {
-      const authorInfo = await getUserInfo(c.env, userId);
-      await createNotification(c.env, {
-        userId: parentNote.userId,
-        type: 'reply',
-        title: '您的笔记收到了回复',
-        body: `${authorInfo?.name || authorInfo?.email || '用户'} 回复了您在文件「${file.name}」中的笔记`,
-        data: {
-          fileId,
-          fileName: file.name,
-          noteId,
-          parentId,
-          replierId: userId,
-          replierName: authorInfo?.name || authorInfo?.email,
-        },
-      });
+      c.executionCtx.waitUntil(
+        (async () => {
+          try {
+            const authorInfo = await getUserInfo(c.env, userId);
+            await createNotification(c.env, {
+              userId: parentNote.userId,
+              type: 'reply',
+              title: '您的笔记收到了回复',
+              body: `${authorInfo?.name || authorInfo?.email || '用户'} 回复了您在文件「${file.name}」中的笔记`,
+              data: {
+                fileId,
+                fileName: file.name,
+                noteId,
+                parentId,
+                replierId: userId,
+                replierName: authorInfo?.name || authorInfo?.email,
+              },
+            });
+          } catch (e) {
+            console.error('Failed to send reply notification:', e);
+          }
+        })()
+      );
     }
   }
 

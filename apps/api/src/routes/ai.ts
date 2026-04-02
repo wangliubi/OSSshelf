@@ -25,7 +25,7 @@ import {
   searchAndFetchFiles,
 } from '../lib/vectorIndex';
 import { generateFileSummary, generateImageTags, suggestFileName } from '../lib/aiFeatures';
-import { createNotification } from '../lib/notificationUtils';
+import { createNotification, sendNotification } from '../lib/notificationUtils';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('/*', authMiddleware);
@@ -270,21 +270,17 @@ app.post('/summarize/:fileId', async (c) => {
   try {
     const result = await generateFileSummary(c.env, fileId);
 
-    (async () => {
-      try {
-        await createNotification(c.env, {
-          userId,
-          type: 'ai_complete',
-          title: 'AI 摘要生成完成',
-          body: `文件「${file.name}」的摘要已生成`,
-          data: {
-            fileId,
-            fileName: file.name,
-            feature: 'summary',
-          },
-        });
-      } catch {}
-    })();
+    sendNotification(c, {
+      userId,
+      type: 'ai_complete',
+      title: 'AI 摘要生成完成',
+      body: `文件「${file.name}」的摘要已生成`,
+      data: {
+        fileId,
+        fileName: file.name,
+        feature: 'summary',
+      },
+    });
 
     return c.json({ success: true, data: result });
   } catch (error) {
@@ -315,21 +311,17 @@ app.post('/tags/:fileId', async (c) => {
   try {
     const result = await generateImageTags(c.env, fileId);
 
-    (async () => {
-      try {
-        await createNotification(c.env, {
-          userId,
-          type: 'ai_complete',
-          title: 'AI 标签生成完成',
-          body: `图片「${file.name}」的标签已生成`,
-          data: {
-            fileId,
-            fileName: file.name,
-            feature: 'tags',
-          },
-        });
-      } catch {}
-    })();
+    sendNotification(c, {
+      userId,
+      type: 'ai_complete',
+      title: 'AI 标签生成完成',
+      body: `图片「${file.name}」的标签已生成`,
+      data: {
+        fileId,
+        fileName: file.name,
+        feature: 'tags',
+      },
+    });
 
     return c.json({ success: true, data: result });
   } catch (error) {

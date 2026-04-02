@@ -24,7 +24,7 @@ import {
   resolveEffectivePermission,
   type PermissionLevel,
 } from '../lib/permissionResolver';
-import { createNotification, getUserInfo } from '../lib/notificationUtils';
+import { createNotification, sendNotification, getUserInfo } from '../lib/notificationUtils';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('*', authMiddleware);
@@ -444,45 +444,49 @@ app.post('/grant', async (c) => {
     userAgent: getUserAgent(c),
   });
 
-  (async () => {
-    try {
-      const granterInfo = await getUserInfo(c.env, userId);
-      const granterName = granterInfo?.name || granterInfo?.email || '用户';
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const granterInfo = await getUserInfo(c.env, userId);
+        const granterName = granterInfo?.name || granterInfo?.email || '用户';
 
-      if (subjectType === 'user' && targetUserId && targetUserId !== userId) {
+        if (subjectType === 'user' && targetUserId && targetUserId !== userId) {
+          await createNotification(c.env, {
+            userId: targetUserId,
+            type: 'permission_granted',
+            title: '您被授予了文件权限',
+            body: `${granterName} 授予了您对「${file.name}」的${permission === 'read' ? '读取' : permission === 'write' ? '读写' : '管理'}权限`,
+            data: {
+              fileId,
+              fileName: file.name,
+              isFolder: file.isFolder,
+              permission,
+              granterId: userId,
+              granterName,
+            },
+          });
+        }
+
         await createNotification(c.env, {
-          userId: targetUserId,
-          type: 'permission_granted',
-          title: '您被授予了文件权限',
-          body: `${granterName} 授予了您对「${file.name}」的${permission === 'read' ? '读取' : permission === 'write' ? '读写' : '管理'}权限`,
+          userId,
+          type: 'permission_granted_to',
+          title: '权限授予成功',
+          body: `您已将「${file.name}」的${permission === 'read' ? '读取' : permission === 'write' ? '读写' : '管理'}权限授予给${subjectType === 'user' ? '用户' : '用户组'}`,
           data: {
             fileId,
             fileName: file.name,
             isFolder: file.isFolder,
             permission,
-            granterId: userId,
-            granterName,
+            targetUserId,
+            targetGroupId: groupId,
+            subjectType,
           },
         });
+      } catch (e) {
+        console.error('Failed to send notification:', e);
       }
-
-      await createNotification(c.env, {
-        userId,
-        type: 'permission_granted_to',
-        title: '权限授予成功',
-        body: `您已将「${file.name}」的${permission === 'read' ? '读取' : permission === 'write' ? '读写' : '管理'}权限授予给${subjectType === 'user' ? '用户' : '用户组'}`,
-        data: {
-          fileId,
-          fileName: file.name,
-          isFolder: file.isFolder,
-          permission,
-          targetUserId,
-          targetGroupId: groupId,
-          subjectType,
-        },
-      });
-    } catch {}
-  })();
+    })()
+  );
 
   return c.json({
     success: true,

@@ -28,7 +28,7 @@ import { throwAppError } from '../middleware/error';
 import { ERROR_CODES, MAX_FILE_SIZE, isPreviewableMimeType, inferMimeType } from '@osshelf/shared';
 import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
-import { createNotification } from '../lib/notificationUtils';
+import { createNotification, sendNotification } from '../lib/notificationUtils';
 import { s3Put, s3Get, s3Delete, decryptSecret } from '../lib/s3client';
 import { resolveBucketConfig, updateBucketStats, updateUserStorage, checkBucketQuota } from '../lib/bucketResolver';
 import { checkFolderMimeTypeRestriction } from '../lib/folderPolicy';
@@ -246,22 +246,18 @@ app.get('/:id/download', async (c) => {
   if (bucketConfig) {
     const s3Res = await s3Get(bucketConfig, file.r2Key);
 
-    (async () => {
-      try {
-        await createNotification(c.env, {
-          userId,
-          type: 'file_downloaded',
-          title: '文件下载成功',
-          body: `文件「${file.name}」已成功下载`,
-          data: {
-            fileId,
-            fileName: file.name,
-            size: file.size,
-            mimeType: file.mimeType,
-          },
-        });
-      } catch {}
-    })();
+    sendNotification(c, {
+      userId,
+      type: 'file_downloaded',
+      title: '文件下载成功',
+      body: `文件「${file.name}」已成功下载`,
+      data: {
+        fileId,
+        fileName: file.name,
+        size: file.size,
+        mimeType: file.mimeType,
+      },
+    });
 
     return new Response(s3Res.body, { headers: dlHeaders });
   }
@@ -269,22 +265,18 @@ app.get('/:id/download', async (c) => {
     const obj = await c.env.FILES.get(file.r2Key);
     if (!obj) throwAppError('FILE_CONTENT_NOT_FOUND');
 
-    (async () => {
-      try {
-        await createNotification(c.env, {
-          userId,
-          type: 'file_downloaded',
-          title: '文件下载成功',
-          body: `文件「${file.name}」已成功下载`,
-          data: {
-            fileId,
-            fileName: file.name,
-            size: file.size,
-            mimeType: file.mimeType,
-          },
-        });
-      } catch {}
-    })();
+    sendNotification(c, {
+      userId,
+      type: 'file_downloaded',
+      title: '文件下载成功',
+      body: `文件「${file.name}」已成功下载`,
+      data: {
+        fileId,
+        fileName: file.name,
+        size: file.size,
+        mimeType: file.mimeType,
+      },
+    });
 
     return new Response(obj.body, { headers: dlHeaders });
   }
@@ -498,24 +490,20 @@ app.post('/upload', async (c) => {
     await updateBucketStats(db, bucketConfig.id, physicalSizeDelta, 1);
   }
 
-  (async () => {
-    try {
-      await createNotification(c.env, {
-        userId,
-        type: 'file_uploaded',
-        title: '文件上传成功',
-        body: `文件「${uploadFile.name}」已成功上传`,
-        data: {
-          fileId,
-          fileName: uploadFile.name,
-          size: uploadFile.size,
-          mimeType: fileMime,
-          bucketId: finalBucketId,
-          deduped: dedupResult.isDuplicate,
-        },
-      });
-    } catch {}
-  })();
+  sendNotification(c, {
+    userId,
+    type: 'file_uploaded',
+    title: '文件上传成功',
+    body: `文件「${uploadFile.name}」已成功上传`,
+    data: {
+      fileId,
+      fileName: uploadFile.name,
+      size: uploadFile.size,
+      mimeType: fileMime,
+      bucketId: finalBucketId,
+      deduped: dedupResult.isDuplicate,
+    },
+  });
 
   return c.json({
     success: true,
@@ -1492,21 +1480,17 @@ app.delete('/:id', async (c) => {
   if (file.isFolder) await softDeleteFolder(db, fileId, now);
   await db.update(files).set({ deletedAt: now, updatedAt: now }).where(eq(files.id, fileId));
 
-  (async () => {
-    try {
-      await createNotification(c.env, {
-        userId,
-        type: file.isFolder ? 'folder_deleted' : 'file_deleted',
-        title: file.isFolder ? '文件夹已删除' : '文件已删除',
-        body: `${file.isFolder ? '文件夹' : '文件'}「${file.name}」已移入回收站`,
-        data: {
-          fileId,
-          fileName: file.name,
-          isFolder: file.isFolder,
-        },
-      });
-    } catch {}
-  })();
+  sendNotification(c, {
+    userId,
+    type: file.isFolder ? 'folder_deleted' : 'file_deleted',
+    title: file.isFolder ? '文件夹已删除' : '文件已删除',
+    body: `${file.isFolder ? '文件夹' : '文件'}「${file.name}」已移入回收站`,
+    data: {
+      fileId,
+      fileName: file.name,
+      isFolder: file.isFolder,
+    },
+  });
 
   return c.json({ success: true, data: { message: '已移入回收站' } });
 });
@@ -1613,21 +1597,17 @@ app.post('/:id/star', async (c) => {
   const now = new Date().toISOString();
   await db.update(files).set({ isStarred: true, updatedAt: now }).where(eq(files.id, fileId));
 
-  (async () => {
-    try {
-      await createNotification(c.env, {
-        userId,
-        type: 'file_starred',
-        title: '文件已收藏',
-        body: `您已收藏${file.isFolder ? '文件夹' : '文件'}「${file.name}」`,
-        data: {
-          fileId,
-          fileName: file.name,
-          isFolder: file.isFolder,
-        },
-      });
-    } catch {}
-  })();
+  sendNotification(c, {
+    userId,
+    type: 'file_starred',
+    title: '文件已收藏',
+    body: `您已收藏${file.isFolder ? '文件夹' : '文件'}「${file.name}」`,
+    data: {
+      fileId,
+      fileName: file.name,
+      isFolder: file.isFolder,
+    },
+  });
 
   return c.json({ success: true, data: { message: '已收藏', isStarred: true } });
 });
@@ -1648,21 +1628,17 @@ app.delete('/:id/star', async (c) => {
   const now = new Date().toISOString();
   await db.update(files).set({ isStarred: false, updatedAt: now }).where(eq(files.id, fileId));
 
-  (async () => {
-    try {
-      await createNotification(c.env, {
-        userId,
-        type: 'file_unstarred',
-        title: '已取消收藏',
-        body: `您已取消收藏${file.isFolder ? '文件夹' : '文件'}「${file.name}」`,
-        data: {
-          fileId,
-          fileName: file.name,
-          isFolder: file.isFolder,
-        },
-      });
-    } catch {}
-  })();
+  sendNotification(c, {
+    userId,
+    type: 'file_unstarred',
+    title: '已取消收藏',
+    body: `您已取消收藏${file.isFolder ? '文件夹' : '文件'}「${file.name}」`,
+    data: {
+      fileId,
+      fileName: file.name,
+      isFolder: file.isFolder,
+    },
+  });
 
   return c.json({ success: true, data: { message: '已取消收藏', isStarred: false } });
 });
