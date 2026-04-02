@@ -204,7 +204,7 @@ export function formatMimeTypeLabel(mimeType: string): string {
     return category.charAt(0).toUpperCase() + category.slice(1);
   }
   const parts = mimeType.split('/');
-  if (parts.length === 2) {
+  if (parts.length === 2 && parts[1]) {
     return parts[1].toUpperCase();
   }
   return mimeType;
