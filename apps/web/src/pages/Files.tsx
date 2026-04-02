@@ -597,12 +597,13 @@ export default function Files() {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="space-y-4">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold">文件管理</h1>
-          <div className="text-muted-foreground text-sm mt-0.5">
-            <BreadcrumbNav items={breadcrumbs} />
-          </div>
+          <p className="text-muted-foreground text-sm mt-0.5">管理您的文件与文件夹</p>
+        </div>
+        <div className="text-muted-foreground text-sm">
+          <BreadcrumbNav items={breadcrumbs} />
         </div>
 
         <MobileSearchPanel

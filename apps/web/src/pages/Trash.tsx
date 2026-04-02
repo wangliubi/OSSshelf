@@ -64,20 +64,22 @@ export default function Trash() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold">回收站</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {items.length > 0 ? `${items.length} 个文件等待清理` : '回收站是空的'}
-          </p>
-        </div>
-        {items.length > 0 && (
+      <div>
+        <h1 className="text-xl lg:text-2xl font-bold">回收站</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {items.length > 0 ? `${items.length} 个文件等待清理` : '回收站是空的'}
+        </p>
+      </div>
+
+      {/* Actions */}
+      {items.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="destructive" size="sm" onClick={handleEmpty} disabled={emptyMutation.isPending}>
             <Trash2 className="h-4 w-4 mr-1.5" />
             清空回收站
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Warning banner */}
       {items.length > 0 && (

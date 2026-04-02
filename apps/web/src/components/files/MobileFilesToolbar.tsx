@@ -140,9 +140,10 @@ export function MobileFilesToolbar({
       {showFabMenu && (
         <>
           <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setShowFabMenu(false)} />
-          <div className="fixed bottom-36 left-1/2 -translate-x-1/2 z-30 flex flex-col gap-2 lg:hidden animate-scale-in">
+          <div className="fixed bottom-36 left-1/2 z-30 flex flex-col gap-2 lg:hidden" style={{ transform: 'translateX(-50%)' }}>
             <button
-              className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform"
+              className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform animate-fade-in"
+              style={{ animationDelay: '0ms' }}
               onClick={() => {
                 setShowFabMenu(false);
                 onNewFile();
@@ -152,7 +153,8 @@ export function MobileFilesToolbar({
               新建文件
             </button>
             <button
-              className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform"
+              className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform animate-fade-in"
+              style={{ animationDelay: '50ms' }}
               onClick={() => {
                 setShowFabMenu(false);
                 onNewFolder();
@@ -163,7 +165,8 @@ export function MobileFilesToolbar({
             </button>
             {onUploadFolder && (
               <button
-                className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform"
+                className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform animate-fade-in"
+                style={{ animationDelay: '100ms' }}
                 onClick={() => {
                   setShowFabMenu(false);
                   onUploadFolder();
@@ -174,7 +177,8 @@ export function MobileFilesToolbar({
               </button>
             )}
             <button
-              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-full shadow-lg text-sm active:scale-95 transition-transform"
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-full shadow-lg text-sm active:scale-95 transition-transform animate-fade-in"
+              style={{ animationDelay: '150ms' }}
               onClick={() => {
                 setShowFabMenu(false);
                 onUpload();

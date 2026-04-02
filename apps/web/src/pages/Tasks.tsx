@@ -350,83 +350,82 @@ export default function Tasks() {
     <div className="space-y-6">
       <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e)} />
 
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold">上传任务</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">管理文件上传任务</p>
-        </div>
-        <div className={cn('flex items-center gap-2', isMobile ? 'flex-col w-full' : 'flex-row')}>
-          {isMobile && (
-            <>
-              {pendingOrUploadingTasks.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()} className="w-full">
-                  <PauseCircle className="h-4 w-4 mr-1.5" />
-                  一键暂停 ({pendingOrUploadingTasks.length})
-                </Button>
-              )}
-              {pausedTasks.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteAllPausedMutation.mutate()}
-                  className="w-full text-red-500 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4 mr-1.5" />
-                  删除暂停中 ({pausedTasks.length})
-                </Button>
-              )}
-            </>
-          )}
-          <div className={cn('flex items-center gap-2', isMobile && 'w-full')}>
-            {completedTasks.length > 0 && (
+      <div>
+        <h1 className="text-xl lg:text-2xl font-bold">上传任务</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">管理文件上传任务</p>
+      </div>
+
+      <div className={cn('flex items-center gap-2 flex-wrap', isMobile && 'w-full')}>
+        {isMobile && (
+          <>
+            {pendingOrUploadingTasks.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()} className="w-full">
+                <PauseCircle className="h-4 w-4 mr-1.5" />
+                一键暂停 ({pendingOrUploadingTasks.length})
+              </Button>
+            )}
+            {pausedTasks.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => clearCompletedMutation.mutate()}
-                className={cn(isMobile && 'flex-1')}
+                onClick={() => deleteAllPausedMutation.mutate()}
+                className="w-full text-red-500 hover:text-red-600"
               >
-                <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                {!isMobile && '清空已完成'}
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                删除暂停中 ({pausedTasks.length})
               </Button>
             )}
-            {failedTasks.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => clearFailedMutation.mutate()}
-                className={cn(isMobile && 'flex-1')}
-              >
-                <XCircle className="h-4 w-4 mr-1.5" />
-                {!isMobile && '清空失败'}
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={() => refetch()} className={cn(isMobile && 'flex-1')}>
-              <RefreshCw className="h-4 w-4 mr-1.5" />
-              {!isMobile && '刷新'}
+          </>
+        )}
+        <div className={cn('flex items-center gap-2 flex-wrap', isMobile && 'w-full')}>
+          {completedTasks.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => clearCompletedMutation.mutate()}
+              className={cn(isMobile && 'flex-1')}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1.5" />
+              {!isMobile && '清空已完成'}
             </Button>
-          </div>
-          {!isMobile && (
-            <>
-              {pendingOrUploadingTasks.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()}>
-                  <PauseCircle className="h-4 w-4 mr-1.5" />
-                  一键暂停 ({pendingOrUploadingTasks.length})
-                </Button>
-              )}
-              {pausedTasks.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteAllPausedMutation.mutate()}
-                  className="text-red-500 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4 mr-1.5" />
-                  删除暂停中 ({pausedTasks.length})
-                </Button>
-              )}
-            </>
           )}
+          {failedTasks.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => clearFailedMutation.mutate()}
+              className={cn(isMobile && 'flex-1')}
+            >
+              <XCircle className="h-4 w-4 mr-1.5" />
+              {!isMobile && '清空失败'}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => refetch()} className={cn(isMobile && 'flex-1')}>
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            {!isMobile && '刷新'}
+          </Button>
         </div>
+        {!isMobile && (
+          <>
+            {pendingOrUploadingTasks.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => pauseAllMutation.mutate()}>
+                <PauseCircle className="h-4 w-4 mr-1.5" />
+                一键暂停 ({pendingOrUploadingTasks.length})
+              </Button>
+            )}
+            {pausedTasks.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => deleteAllPausedMutation.mutate()}
+                className="text-red-500 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                删除暂停中 ({pausedTasks.length})
+              </Button>
+            )}
+          </>
+        )}
       </div>
 
       {isLoading ? (
