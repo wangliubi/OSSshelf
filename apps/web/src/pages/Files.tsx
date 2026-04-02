@@ -182,6 +182,8 @@ export default function Files() {
     clearTagSearch,
     semanticSearch,
     setSemanticSearch,
+    ftsSearch,
+    setFtsSearch,
     aiConfigured,
   } = fileSearch;
 
@@ -667,6 +669,8 @@ export default function Files() {
           }}
           onClearConditions={() => setAdvancedConditions([])}
           onToggleSemanticSearch={() => setSemanticSearch(!semanticSearch)}
+          ftsSearch={ftsSearch}
+          onToggleFtsSearch={() => setFtsSearch(!ftsSearch)}
           onClearTagSearch={clearTagSearch}
           onClearHistory={async () => {
             await searchApi.clearHistory();
@@ -836,6 +840,16 @@ export default function Files() {
               {semanticSearch ? '语义' : '关键词'}
             </Button>
           )}
+
+          <Button
+            variant={ftsSearch ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFtsSearch(!ftsSearch)}
+            title={ftsSearch ? 'FTS5全文搜索已开启' : '开启FTS5全文搜索'}
+          >
+            <Search className="h-3.5 w-3.5 mr-1" />
+            {ftsSearch ? 'FTS5' : '普通'}
+          </Button>
 
           {showAdvancedSearch && (
             <div className="flex items-center gap-2 p-2 bg-muted/30 border rounded-md">

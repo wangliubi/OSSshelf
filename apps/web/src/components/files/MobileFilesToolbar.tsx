@@ -140,7 +140,10 @@ export function MobileFilesToolbar({
       {showFabMenu && (
         <>
           <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setShowFabMenu(false)} />
-          <div className="fixed bottom-36 left-1/2 z-30 flex flex-col gap-2 lg:hidden" style={{ transform: 'translateX(-50%)' }}>
+          <div
+            className="fixed bottom-36 left-1/2 z-30 flex flex-col gap-2 lg:hidden"
+            style={{ transform: 'translateX(-50%)' }}
+          >
             <button
               className="flex items-center gap-2 px-4 py-2.5 bg-card rounded-full shadow-lg border text-sm active:scale-95 transition-transform animate-fade-in"
               style={{ animationDelay: '0ms' }}
@@ -206,6 +209,7 @@ interface MobileSearchPanelProps {
   searchHistoryData: Array<{ id: string; query: string }>;
   aiConfigured: boolean;
   semanticSearch: boolean;
+  ftsSearch: boolean;
   onSearchInputChange: (value: string) => void;
   onClearSearch: () => void;
   onToggleAdvancedSearch: () => void;
@@ -216,6 +220,7 @@ interface MobileSearchPanelProps {
   onUpdateCondition: (idx: number, key: 'field' | 'operator' | 'value', value: string) => void;
   onClearConditions: () => void;
   onToggleSemanticSearch: () => void;
+  onToggleFtsSearch: () => void;
   onClearTagSearch: () => void;
   onClearHistory: () => void;
   onDeleteHistoryItem: (id: string) => void;
@@ -235,6 +240,7 @@ export function MobileSearchPanel({
   searchHistoryData,
   aiConfigured,
   semanticSearch,
+  ftsSearch,
   onSearchInputChange,
   onClearSearch,
   onToggleAdvancedSearch,
@@ -245,6 +251,7 @@ export function MobileSearchPanel({
   onUpdateCondition,
   onClearConditions,
   onToggleSemanticSearch,
+  onToggleFtsSearch,
   onClearTagSearch,
   onClearHistory,
   onDeleteHistoryItem,
@@ -341,6 +348,11 @@ export function MobileSearchPanel({
           {semanticSearch ? '语义搜索已开启' : '开启语义搜索'}
         </Button>
       )}
+
+      <Button variant={ftsSearch ? 'default' : 'outline'} size="sm" onClick={onToggleFtsSearch} className="w-full">
+        <Search className="h-3.5 w-3.5 mr-1.5" />
+        {ftsSearch ? 'FTS5全文搜索已开启' : '开启FTS5全文搜索'}
+      </Button>
 
       {tagSearchQuery && (
         <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl text-sm">

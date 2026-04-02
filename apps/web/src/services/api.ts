@@ -689,6 +689,7 @@ export const searchApi = {
     limit?: number;
     semantic?: boolean;
     hybrid?: boolean;
+    fts?: boolean;
   }) => api.get<ApiResponse<FileSearchResult>>('/api/search', { params }),
   advanced: (data: {
     conditions: Array<{

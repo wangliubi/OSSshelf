@@ -9,7 +9,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Bell, Check, CheckCheck, Trash2, ExternalLink, Loader2, X } from 'lucide-react';
+import { Bell, Check, CheckCheck, Trash2, Loader2, X } from 'lucide-react';
+import { notificationsApi } from '../../services/api';
 import { cn } from '../../utils';
 
 interface Notification {
@@ -46,12 +47,10 @@ export function NotificationList({ onClose, onNotificationClick, className }: No
     setLoading(true);
     setError(null);
     try {
-      // TODO: 实际调用通知 API
-      // const res = await notificationsApi.list();
-      // if (res.data.success && res.data.data.items) {
-      //   setNotifications(res.data.data.items);
-      // }
-      setNotifications([]);
+      const res = await notificationsApi.list();
+      if (res.data.success && res.data.data?.items) {
+        setNotifications(res.data.data.items);
+      }
     } catch (err) {
       setError('加载通知失败');
       console.error(err);
@@ -66,7 +65,7 @@ export function NotificationList({ onClose, onNotificationClick, className }: No
 
   const handleMarkRead = async (id: string) => {
     try {
-      // await notificationsApi.markRead(id);
+      await notificationsApi.markRead(id);
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
     } catch (error) {
       console.error('Failed to mark as read:', error);
@@ -75,7 +74,7 @@ export function NotificationList({ onClose, onNotificationClick, className }: No
 
   const handleMarkAllRead = async () => {
     try {
-      // await notificationsApi.markAllRead();
+      await notificationsApi.markAllRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (error) {
       console.error('Failed to mark all as read:', error);
@@ -84,7 +83,7 @@ export function NotificationList({ onClose, onNotificationClick, className }: No
 
   const handleDelete = async (id: string) => {
     try {
-      // await notificationsApi.delete(id);
+      await notificationsApi.delete(id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (error) {
       console.error('Failed to delete notification:', error);
