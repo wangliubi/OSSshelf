@@ -5,12 +5,14 @@
  * 功能:
  * - 统一的通知创建入口
  * - 支持多种通知类型
+ * - 使用 waitUntil 确保通知在 Cloudflare Workers 中正确执行
  */
 
 import { getDb, users, files } from '../db';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { notifications } from '../db';
 import type { Env } from '../types/env';
+import type { Context } from 'hono';
 
 export type NotificationType =
   | 'share_received'
@@ -78,6 +80,20 @@ export async function createNotificationForUsers(
 ): Promise<void> {
   for (const userId of userIds) {
     await createNotification(env, { ...params, userId });
+  }
+}
+
+export function sendNotification(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  c: Context<any>,
+  params: CreateNotificationParams
+): void {
+  const task = createNotification(c.env, params).catch((e) => {
+    console.error('Failed to create notification:', e);
+  });
+
+  if (c.executionCtx && typeof c.executionCtx.waitUntil === 'function') {
+    c.executionCtx.waitUntil(task);
   }
 }
 

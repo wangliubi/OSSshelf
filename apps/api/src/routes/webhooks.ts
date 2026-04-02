@@ -18,7 +18,7 @@ import type { Env, Variables } from '../types/env';
 import { z } from 'zod';
 import { createAuditLog, getClientIp, getUserAgent } from '../lib/audit';
 import { dispatchWebhook, WEBHOOK_EVENTS, type WebhookEvent } from '../lib/webhook';
-import { createNotification } from '../lib/notificationUtils';
+import { createNotification, sendNotification } from '../lib/notificationUtils';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('*', authMiddleware);
@@ -120,21 +120,17 @@ app.post('/', async (c) => {
     userAgent: getUserAgent(c),
   });
 
-  (async () => {
-    try {
-      await createNotification(c.env, {
-        userId,
-        type: 'webhook_created',
-        title: 'Webhook 创建成功',
-        body: `Webhook「${url}」已创建，监听事件: ${events.join(', ')}`,
-        data: {
-          webhookId,
-          url,
-          events,
-        },
-      });
-    } catch {}
-  })();
+  sendNotification(c, {
+    userId,
+    type: 'webhook_created',
+    title: 'Webhook 创建成功',
+    body: `Webhook「${url}」已创建，监听事件: ${events.join(', ')}`,
+    data: {
+      webhookId,
+      url,
+      events,
+    },
+  });
 
   return c.json({
     success: true,
@@ -274,20 +270,16 @@ app.delete('/:id', async (c) => {
 
   await db.delete(webhooks).where(eq(webhooks.id, webhookId));
 
-  (async () => {
-    try {
-      await createNotification(c.env, {
-        userId,
-        type: 'webhook_deleted',
-        title: 'Webhook 已删除',
-        body: `Webhook「${webhook.url}」已删除`,
-        data: {
-          webhookId,
-          url: webhook.url,
-        },
-      });
-    } catch {}
-  })();
+  sendNotification(c, {
+    userId,
+    type: 'webhook_deleted',
+    title: 'Webhook 已删除',
+    body: `Webhook「${webhook.url}」已删除`,
+    data: {
+      webhookId,
+      url: webhook.url,
+    },
+  });
 
   return c.json({ success: true, data: { message: 'Webhook 已删除' } });
 });
