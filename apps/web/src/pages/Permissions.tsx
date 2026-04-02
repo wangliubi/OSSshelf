@@ -35,29 +35,29 @@ const Permissions: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold">权限管理</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">管理用户组、授权、Webhook 和 API Key</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowHelp(true)}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent"
-          >
-            <HelpCircle className="h-4 w-4" />
-            权限说明
-          </button>
-          <a
-            href={`${import.meta.env.VITE_API_URL}/api/v1/docs`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
-          >
-            <BookOpen className="h-4 w-4" />
-            API 文档
-          </a>
-        </div>
+      <div>
+        <h1 className="text-xl lg:text-2xl font-bold">权限管理</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">管理用户组、授权、Webhook 和 API Key</p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-wrap justify-end">
+        <button
+          onClick={() => setShowHelp(true)}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent"
+        >
+          <HelpCircle className="h-4 w-4" />
+          权限说明
+        </button>
+        <a
+          href={`${import.meta.env.VITE_API_URL}/api/v1/docs`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+        >
+          <BookOpen className="h-4 w-4" />
+          API 文档
+        </a>
       </div>
 
       {/* Tabs */}

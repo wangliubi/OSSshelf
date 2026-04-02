@@ -73,7 +73,7 @@ export default function Trash() {
 
       {/* Actions */}
       {items.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button variant="destructive" size="sm" onClick={handleEmpty} disabled={emptyMutation.isPending}>
             <Trash2 className="h-4 w-4 mr-1.5" />
             清空回收站

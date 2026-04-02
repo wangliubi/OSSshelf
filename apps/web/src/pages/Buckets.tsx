@@ -679,7 +679,7 @@ export default function Buckets() {
         <p className="text-muted-foreground text-sm mt-0.5">管理多厂商、多存储桶的连接配置</p>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap justify-end">
         <Button
           onClick={() => {
             setShowForm(true);

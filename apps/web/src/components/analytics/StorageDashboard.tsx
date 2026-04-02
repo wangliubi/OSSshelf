@@ -72,18 +72,8 @@ export function StorageDashboard() {
   const usagePercent = breakdown ? Math.min(100, (breakdown.used / breakdown.quota) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <button
-          onClick={fetchData}
-          className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-          title="刷新数据"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="flex gap-1 sm:gap-2 border-b border-gray-200 dark:border-gray-700 pb-2 overflow-x-auto no-scrollbar">
+    <div className="space-y-4">
+      <div className="flex gap-1 sm:gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar">
         {[
           { key: 'overview', label: '概览', icon: HardDrive },
           { key: 'activity', label: '活跃度', icon: Activity },
