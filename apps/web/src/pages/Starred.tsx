@@ -48,7 +48,7 @@ export default function Starred() {
       {/* Header */}
       <div>
         <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
-          <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
+          <Star className="h-5 w-5 lg:h-6 lg:w-6 text-yellow-500 fill-yellow-500" />
           收藏
         </h1>
         <p className="text-muted-foreground text-sm mt-0.5">{isLoading ? '加载中…' : `${files.length} 个收藏文件`}</p>
@@ -60,10 +60,10 @@ export default function Starred() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-          <Star className="h-14 w-14 opacity-20" />
-          <p className="text-base font-medium">暂无收藏文件</p>
-          <p className="text-sm">在文件列表中点击 ☆ 即可收藏</p>
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+          <Star className="h-10 w-10 lg:h-12 lg:w-12 opacity-20" />
+          <p className="text-sm font-medium">暂无收藏文件</p>
+          <p className="text-xs">在文件列表中点击 ☆ 即可收藏</p>
         </div>
       ) : (
         <div className="grid gap-2">

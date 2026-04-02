@@ -83,7 +83,7 @@ export function StorageDashboard() {
         </button>
       </div>
 
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+      <div className="flex gap-1 sm:gap-2 border-b border-gray-200 dark:border-gray-700 pb-2 overflow-x-auto no-scrollbar">
         {[
           { key: 'overview', label: '概览', icon: HardDrive },
           { key: 'activity', label: '活跃度', icon: Activity },
@@ -93,14 +93,14 @@ export function StorageDashboard() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
             className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium transition-colors',
+              'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-t-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0',
               activeTab === tab.key
                 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border-b-2 border-blue-500'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             )}
           >
-            <tab.icon className="h-4 w-4" />
-            {tab.label}
+            <tab.icon className="h-4 w-4 flex-shrink-0" />
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>

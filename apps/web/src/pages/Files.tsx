@@ -597,10 +597,10 @@ export default function Files() {
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold">文件管理</h1>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="text-muted-foreground text-sm mt-0.5">
             <BreadcrumbNav items={breadcrumbs} />
           </div>
         </div>

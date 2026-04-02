@@ -350,7 +350,7 @@ export default function Tasks() {
     <div className="space-y-6">
       <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e)} />
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold">上传任务</h1>
           <p className="text-muted-foreground text-sm mt-0.5">管理文件上传任务</p>
